@@ -1,0 +1,65 @@
+# Digital Twin - Base Configuration
+
+llm:
+  default_model: "claude-sonnet-4-20250514"
+  complex_model: "claude-opus-4-20250514"
+  temperature: 0.8
+  max_tokens: 4096
+  replications: 3  # 各ペルソナの回答シミュレーション回数
+
+data:
+  raw_dir: "./data/raw"
+  processed_dir: "./data/processed"
+
+anonymization:
+  k_anonymity: 5  # k-匿名性の最小値
+  suppress_threshold: 3  # この件数未満のセルは抑制
+
+persona:
+  min_historical_responses: 5  # ペルソナ構築に必要な最小回答数
+  embedding_model: "text-embedding-3-small"
+
+evaluation:
+  js_divergence_threshold: 0.10  # PoC Go/No-Go基準
+  mode_agreement_threshold: 0.70
+  effect_direction_threshold: 0.90
+
+simulation:
+  batch_size: 50  # 並列API呼び出し数
+  max_retries: 3
+  timeout_seconds: 30
+
+qdrant:
+  host: localhost
+  port: 6333
+  collection: persona_knowledge
+
+embedding:
+  model: "intfloat/multilingual-e5-large"
+  dimension: 1024
+
+abm:
+  step_unit: "month"        # month / week / quarter
+  step_label: "ヶ月"
+  agent:
+    kol_threshold: 0.7       # KOL 判定閾値
+    considering_factor: 0.5  # 閾値の何割で「検討中」に遷移するか
+  network:
+    same_specialty_prob: 0.3
+    same_bed_size_prob: 0.15
+    kol_connection_prob: 0.5
+    seed: 42
+  influence:
+    kol_influence: 0.15
+    peer_influence: 0.05
+  propagation:
+    default_model: "linear_threshold"  # linear_threshold / independent_cascade
+    base_probability: 0.05
+    kol_boost: 0.15
+    decay_rate: 0.95
+  events:
+    conference_kol_multiplier: 0.5
+    conference_general_multiplier: 0.2
+    guideline_threshold_factor: 0.3
+    mr_campaign_factor: 0.3
+    safety_alert_factor: 0.5

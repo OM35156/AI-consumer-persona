@@ -1,0 +1,17 @@
+target-version = "py311"
+line-length = 120
+src = ["src"]
+
+[lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "PTH", "T20"]
+ignore = ["E501"]
+
+[lint.isort]
+known-third-party = ["anthropic", "pydantic", "fastapi", "streamlit", "polars"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+
+[lint.per-file-ignores]
+"**/migrations/*.py" = ["ALL"]

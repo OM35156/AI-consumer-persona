@@ -1,0 +1,83 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+dist/
+build/
+
+# ===== Virtual environments =====
+.venv/
+venv/
+env/
+ENV/
+
+# ===== Environment / Secrets =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.*
+
+# ===== IDE / Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Claude Code =====
+**/.claude/settings.local.json
+
+# ===== Office binaries (容量削減 & 機密漏洩防止) =====
+*.pptx
+*.pptm
+*.ppt
+*.xlsx
+*.xlsm
+*.xls
+*.docx
+*.doc
+*.pdf
+
+# ===== Media =====
+*.mp4
+*.mov
+*.zip
+*.tar.gz
+
+# ===== Database =====
+*.db
+*.sqlite3
+
+# ===== Jupyter =====
+.ipynb_checkpoints/
+
+# ===== ChromaDB =====
+chroma_data/
+
+# ===== Project-specific outputs =====
+**/output/
+**/outputs/
+**/results/
+**/tmp/
+**/cache/
+reports/*.html
+reports/*.pdf
+
+# ===== Whitelist: ここに「コミットしたい特定ファイル」を列挙 =====
+# 例: !docs/important-file.pptx

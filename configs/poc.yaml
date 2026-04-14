@@ -1,0 +1,20 @@
+# Digital Twin - PoC Configuration
+# base.yamlを上書きするPoC固有設定
+
+llm:
+  default_model: "claude-sonnet-4-20250514"
+  temperature: 0.8
+  replications: 3
+
+data:
+  raw_dir: "./data/dummy"
+  processed_dir: "./data/processed"
+  dummy_respondents: 1000  # ダミーデータの回答者数
+  target_disease: "allergic_rhinitis"  # PoC対象疾患
+
+persona:
+  min_historical_responses: 3  # PoC用に緩和
+
+evaluation:
+  holdout_ratio: 0.3  # 検証用に30%を確保
+  js_divergence_threshold: 0.10

@@ -1,0 +1,81 @@
+# ABM シナリオプリセット定義
+
+scenarios:
+  - name: "新薬発売シナリオ（ダトロウェイ）"
+    product: "ダトロウェイ"
+    therapeutic_area: "乳がん"
+    target_specialties: ["oncology", "breast_surgery"]
+    initial_adopters:
+      kol: 3
+      early_adopter: 5
+    duration_steps: 24
+    step_unit: "month"
+    events:
+      - event_type: "conference"
+        name: "ASCO 学会発表"
+        start_step: 3
+        duration_steps: 2
+        impact_magnitude: 0.4
+      - event_type: "mr_campaign"
+        name: "全国MRキャンペーン"
+        start_step: 6
+        duration_steps: 3
+        impact_magnitude: 0.3
+
+  - name: "適応拡大シナリオ（エンハーツ HER2低発現）"
+    product: "エンハーツ"
+    therapeutic_area: "乳がん"
+    target_specialties: ["oncology", "breast_surgery", "surgery"]
+    initial_adopters:
+      kol: 5
+      early_adopter: 10
+    duration_steps: 18
+    step_unit: "month"
+    events:
+      - event_type: "guideline_revision"
+        name: "乳癌診療ガイドライン改訂"
+        start_step: 1
+        duration_steps: 3
+        impact_magnitude: 0.5
+      - event_type: "conference"
+        name: "日本乳癌学会シンポジウム"
+        start_step: 6
+        duration_steps: 2
+        impact_magnitude: 0.3
+
+  - name: "安全性問題シナリオ"
+    product: "仮想薬X"
+    therapeutic_area: "乳がん"
+    target_specialties: ["oncology", "breast_surgery"]
+    initial_adopters:
+      kol: 5
+      early_adopter: 15
+    duration_steps: 36
+    step_unit: "month"
+    events:
+      - event_type: "mr_campaign"
+        name: "初期プロモーション"
+        start_step: 1
+        duration_steps: 6
+        impact_magnitude: 0.3
+      - event_type: "safety_alert"
+        name: "重篤な副作用報告"
+        start_step: 12
+        duration_steps: 4
+        impact_magnitude: 0.6
+      - event_type: "conference"
+        name: "安全性データ更新発表"
+        start_step: 20
+        duration_steps: 2
+        impact_magnitude: 0.3
+
+  - name: "カスタムシナリオ"
+    product: ""
+    therapeutic_area: ""
+    target_specialties: []
+    initial_adopters:
+      kol: 3
+      early_adopter: 5
+    duration_steps: 24
+    step_unit: "month"
+    events: []
