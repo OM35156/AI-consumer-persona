@@ -18,7 +18,7 @@ from digital_twin.abm.consumer_agent import (
     AgentProfile,
     ConsumerAgent,
 )
-from digital_twin.abm.network import build_physician_network
+from digital_twin.abm.network import build_consumer_network
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +64,12 @@ class PrescriptionModel(mesa.Model):
         net_seed = cfg.network.seed if cfg else seed
         net_params = {}
         if cfg and cfg.get("network"):
+            # 注: config キー名（same_specialty_prob 等）は下位互換のため維持。
+            # configs/base.yaml 側の改称は別 Issue で対応する。
             net_params = {
-                "same_specialty_prob": cfg.network.same_specialty_prob,
-                "same_bed_size_prob": cfg.network.same_bed_size_prob,
-                "kol_connection_prob": cfg.network.kol_connection_prob,
+                "same_category_prob": cfg.network.same_specialty_prob,
+                "same_income_prob": cfg.network.same_bed_size_prob,
+                "influencer_connection_prob": cfg.network.kol_connection_prob,
             }
 
         # エージェント作成
@@ -82,7 +84,7 @@ class PrescriptionModel(mesa.Model):
             self._agents_list.append(agent)
 
         # ネットワーク構築
-        self.network = build_physician_network(self._agents_list, seed=net_seed, **net_params)
+        self.network = build_consumer_network(self._agents_list, seed=net_seed, **net_params)
 
     @property
     def consumer_agents(self) -> list[ConsumerAgent]:

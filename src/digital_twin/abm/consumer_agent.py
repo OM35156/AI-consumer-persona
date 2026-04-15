@@ -28,14 +28,13 @@ class AdoptionState(StrEnum):
 class AgentProfile:
     """エージェントのプロファイル（セグメントプロファイルから設定）."""
 
-    # 注: 医師版のフィールド名が一部残るが、意味的には汎用（#4 で整理予定）
-    specialty: str = ""
-    bed_size: str = ""
-    age_range: str = ""
-    kol_score: float = 0.0  # 影響力スコア（KOL/インフルエンサー）
-    receptivity: float = 0.5
-    adoption_threshold: float = 0.5
-    current_rx_share: float = 0.0  # 現在のブランド利用シェア
+    category: str = ""                # 関心カテゴリ（スキンケア/サプリ/ガジェット等）
+    income_bracket: str = ""          # 世帯年収層
+    age_range: str = ""               # 年代層
+    influencer_score: float = 0.0     # 影響力スコア（インフルエンサー傾向）
+    receptivity: float = 0.5          # 新商品受容性（0-1）
+    adoption_threshold: float = 0.5   # 採用閾値（0-1）
+    current_brand_share: float = 0.0  # 現在の対象ブランド利用シェア
 
 
 class ConsumerAgent(mesa.Agent):
@@ -59,7 +58,7 @@ class ConsumerAgent(mesa.Agent):
     @property
     def is_influencer(self) -> bool:
         """インフルエンサー（高影響力）かどうか."""
-        return self.profile.kol_score >= self._influencer_threshold
+        return self.profile.influencer_score >= self._influencer_threshold
 
     def receive_influence(self, amount: float) -> None:
         """他のエージェントから影響を受ける."""

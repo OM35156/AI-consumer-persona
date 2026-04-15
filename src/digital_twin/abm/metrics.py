@@ -26,9 +26,9 @@ class ABMMetrics:
     mean_time_to_adoption: float = 0.0
     median_time_to_adoption: float = 0.0
     diffusion_speed: list[int] = field(default_factory=list)  # ステップごとの新規採用数
-    adoption_by_specialty: dict[str, float] = field(default_factory=dict)
-    kol_adoption_rate: float = 0.0
-    non_kol_adoption_rate: float = 0.0
+    adoption_by_category: dict[str, float] = field(default_factory=dict)
+    influencer_adoption_rate: float = 0.0
+    non_influencer_adoption_rate: float = 0.0
 
 
 def calculate_metrics(
@@ -53,25 +53,28 @@ def calculate_metrics(
         diffusion.append(current - prev_adopted)
         prev_adopted = current
 
-    # 診療科別採用率
-    specialty_counts: dict[str, list[int]] = {}
+    # カテゴリ別採用率
+    category_counts: dict[str, list[int]] = {}
     for a in agents:
-        spec = a.profile.specialty
-        if spec not in specialty_counts:
-            specialty_counts[spec] = [0, 0]
-        specialty_counts[spec][0] += 1
+        cat = a.profile.category
+        if cat not in category_counts:
+            category_counts[cat] = [0, 0]
+        category_counts[cat][0] += 1
         if a.state == AdoptionState.ADOPTED:
-            specialty_counts[spec][1] += 1
-    adoption_by_spec = {
-        spec: counts[1] / counts[0] if counts[0] > 0 else 0.0
-        for spec, counts in specialty_counts.items()
+            category_counts[cat][1] += 1
+    adoption_by_cat = {
+        cat: counts[1] / counts[0] if counts[0] > 0 else 0.0
+        for cat, counts in category_counts.items()
     }
 
-    # KOL vs 非KOL
-    kols = [a for a in agents if a.is_influencer]
-    non_kols = [a for a in agents if not a.is_influencer]
-    kol_rate = sum(1 for a in kols if a.state == AdoptionState.ADOPTED) / len(kols) if kols else 0.0
-    non_kol_rate = sum(1 for a in non_kols if a.state == AdoptionState.ADOPTED) / len(non_kols) if non_kols else 0.0
+    # インフルエンサー vs 非インフルエンサー
+    influencers = [a for a in agents if a.is_influencer]
+    non_influencers = [a for a in agents if not a.is_influencer]
+    infl_rate = sum(1 for a in influencers if a.state == AdoptionState.ADOPTED) / len(influencers) if influencers else 0.0
+    non_infl_rate = (
+        sum(1 for a in non_influencers if a.state == AdoptionState.ADOPTED) / len(non_influencers)
+        if non_influencers else 0.0
+    )
 
     return ABMMetrics(
         total_agents=total,
@@ -80,9 +83,9 @@ def calculate_metrics(
         mean_time_to_adoption=mean_tta,
         median_time_to_adoption=median_tta,
         diffusion_speed=diffusion,
-        adoption_by_specialty=adoption_by_spec,
-        kol_adoption_rate=kol_rate,
-        non_kol_adoption_rate=non_kol_rate,
+        adoption_by_category=adoption_by_cat,
+        influencer_adoption_rate=infl_rate,
+        non_influencer_adoption_rate=non_infl_rate,
     )
 
 
@@ -114,9 +117,9 @@ def export_metrics_json(metrics: ABMMetrics, output_path: str | Path) -> None:
         "final_adoption_rate": round(metrics.final_adoption_rate, 4),
         "mean_time_to_adoption": round(metrics.mean_time_to_adoption, 2),
         "median_time_to_adoption": metrics.median_time_to_adoption,
-        "adoption_by_specialty": {k: round(v, 4) for k, v in metrics.adoption_by_specialty.items()},
-        "kol_adoption_rate": round(metrics.kol_adoption_rate, 4),
-        "non_kol_adoption_rate": round(metrics.non_kol_adoption_rate, 4),
+        "adoption_by_category": {k: round(v, 4) for k, v in metrics.adoption_by_category.items()},
+        "influencer_adoption_rate": round(metrics.influencer_adoption_rate, 4),
+        "non_influencer_adoption_rate": round(metrics.non_influencer_adoption_rate, 4),
         "peak_diffusion_speed": max(metrics.diffusion_speed) if metrics.diffusion_speed else 0,
     }
 
