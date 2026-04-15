@@ -98,6 +98,39 @@ class QuestionType(StrEnum):
     NUMERIC = "numeric"
 
 
+# --- Sleep Domain Enums ---
+
+
+class SleepConcern(StrEnum):
+    """睡眠の悩み."""
+    DIFFICULTY_FALLING_ASLEEP = "difficulty_falling_asleep"  # 入眠困難
+    MIDNIGHT_AWAKENING = "midnight_awakening"                # 中途覚醒
+    EARLY_AWAKENING = "early_awakening"                      # 早朝覚醒
+    POOR_QUALITY = "poor_quality"                            # 熟眠感不足
+    SHORT_DURATION = "short_duration"                        # 睡眠時間不足
+    DAYTIME_SLEEPINESS = "daytime_sleepiness"                # 日中の眠気
+    NONE = "none"
+
+
+class SleepProduct(StrEnum):
+    """利用している睡眠関連商品."""
+    SUPPLEMENT = "supplement"        # サプリ
+    MATTRESS = "mattress"            # マットレス
+    PILLOW = "pillow"                # 枕
+    PAJAMAS = "pajamas"              # パジャマ
+    AROMA = "aroma"                  # アロマ
+    APP = "app"                      # 睡眠アプリ
+    PRESCRIPTION = "prescription"    # 処方薬
+
+
+class ExerciseFrequency(StrEnum):
+    """運動頻度."""
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    RARE = "rare"
+    NONE = "none"
+
+
 # --- Consumer Profile ---
 
 
