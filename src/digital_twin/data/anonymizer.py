@@ -1,8 +1,8 @@
 """De-identification and anonymization pipeline for physician data."""
 
+import hashlib
 from collections import Counter
 from dataclasses import dataclass
-import hashlib
 
 from digital_twin.data.schema import Physician
 

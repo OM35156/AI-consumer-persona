@@ -28,7 +28,6 @@ from digital_twin.data.schema import (
 )
 from digital_twin.persona.profile import ConsumerPersona, HistoricalResponse
 
-
 # 生活者ペルソナ用の日本語フルネーム候補
 _MALE_NAMES = [
     "田中 健一", "鈴木 雅之", "佐藤 和彦", "渡辺 誠", "伊藤 隆",
