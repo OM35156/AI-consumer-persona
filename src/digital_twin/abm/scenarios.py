@@ -24,9 +24,11 @@ class ABMScenario:
 
     name: str = ""
     product: str = ""
-    therapeutic_area: str = ""
-    target_specialties: list[str] = field(default_factory=list)
-    initial_adopters: dict[str, int] = field(default_factory=lambda: {"kol": 3, "early_adopter": 5})
+    product_category: str = ""
+    target_categories: list[str] = field(default_factory=list)
+    initial_adopters: dict[str, int] = field(
+        default_factory=lambda: {"influencer": 3, "early_adopter": 5}
+    )
     duration_steps: int = 24
     step_unit: str = "month"
     events: list[ABMEvent] = field(default_factory=list)
@@ -42,24 +44,33 @@ def load_scenarios(path: str | Path | None = None) -> list[ABMScenario]:
     cfg = OmegaConf.load(path)
     scenarios: list[ABMScenario] = []
 
+    # 注: YAML の既存キー (target_specialties / therapeutic_area / kol) は下位互換のため
+    # そのまま読み込み、内部フィールド（target_categories 等）にマップする。
+    # configs/abm_scenarios.yaml のキー改称は別 Issue で扱う。
     for s in cfg.get("scenarios", []):
+        yaml_targets = list(s.get("target_categories", s.get("target_specialties", [])))
         events = []
         for e in s.get("events", []):
             events.append(ABMEvent(
                 event_type=EventType(e["event_type"]),
                 name=e.get("name", ""),
-                target_specialties=list(s.get("target_specialties", [])),
+                target_categories=yaml_targets,
                 impact_magnitude=e.get("impact_magnitude", 0.1),
                 start_step=e.get("start_step", 1),
                 duration_steps=e.get("duration_steps", 3),
             ))
 
+        initial = dict(s.get("initial_adopters", {"influencer": 3, "early_adopter": 5}))
+        # 旧キー "kol" を "influencer" にマップ（下位互換）
+        if "kol" in initial and "influencer" not in initial:
+            initial["influencer"] = initial.pop("kol")
+
         scenarios.append(ABMScenario(
             name=s["name"],
             product=s.get("product", ""),
-            therapeutic_area=s.get("therapeutic_area", ""),
-            target_specialties=list(s.get("target_specialties", [])),
-            initial_adopters=dict(s.get("initial_adopters", {"kol": 3, "early_adopter": 5})),
+            product_category=s.get("product_category", s.get("therapeutic_area", "")),
+            target_categories=yaml_targets,
+            initial_adopters=initial,
             duration_steps=s.get("duration_steps", 24),
             step_unit=s.get("step_unit", "month"),
             events=events,

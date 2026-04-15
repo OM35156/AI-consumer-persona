@@ -30,7 +30,7 @@ class ABMEvent:
 
     event_type: EventType
     name: str = ""
-    target_specialties: list[str] = field(default_factory=list)  # 空=全セグメント
+    target_categories: list[str] = field(default_factory=list)  # 空=全セグメント
     impact_magnitude: float = 0.1  # 影響の大きさ（0-1）
     start_step: int = 1
     duration_steps: int = 3
@@ -53,7 +53,7 @@ def apply_conference(
     """学会イベント: KOL の影響力を一時ブーストする."""
     affected = 0
     for agent in agents:
-        if event.target_specialties and agent.profile.specialty not in event.target_specialties:
+        if event.target_categories and agent.profile.category not in event.target_categories:
             continue
         if agent.is_influencer:
             agent.receive_influence(event.impact_magnitude * kol_multiplier)
@@ -71,7 +71,7 @@ def apply_guideline_revision(
     """ガイドライン改訂: 対象セグメントの採用閾値をシフトする."""
     affected = 0
     for agent in agents:
-        if event.target_specialties and agent.profile.specialty not in event.target_specialties:
+        if event.target_categories and agent.profile.category not in event.target_categories:
             continue
         agent.profile.adoption_threshold = max(
             0.05,
@@ -89,7 +89,7 @@ def apply_mr_campaign(
     """MRキャンペーン: 接触による影響を増加させる."""
     affected = 0
     for agent in agents:
-        if event.target_specialties and agent.profile.specialty not in event.target_specialties:
+        if event.target_categories and agent.profile.category not in event.target_categories:
             continue
         agent.receive_influence(event.impact_magnitude * impact_factor)
         affected += 1
@@ -104,7 +104,7 @@ def apply_safety_alert(
     """安全性アラート: 採用にネガティブ影響（影響度を減少）."""
     affected = 0
     for agent in agents:
-        if event.target_specialties and agent.profile.specialty not in event.target_specialties:
+        if event.target_categories and agent.profile.category not in event.target_categories:
             continue
         agent.influence_accumulated = max(
             0.0,

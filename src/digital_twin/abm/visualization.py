@@ -28,7 +28,7 @@ _STATE_LABELS = {
 def plot_network(
     agents: list[ConsumerAgent],
     network: nx.Graph,
-    title: str = "医師ネットワーク — 採用状況",
+    title: str = "生活者ネットワーク — 採用状況",
 ) -> go.Figure:
     """ネットワークグラフを Plotly で生成する."""
     pos = nx.spring_layout(network, seed=42)
@@ -65,9 +65,9 @@ def plot_network(
         label = _STATE_LABELS.get(agent.state, "不明")
         node_text.append(
             f"ID: {agent.unique_id}<br>"
-            f"診療科: {agent.profile.specialty}<br>"
+            f"関心カテゴリ: {agent.profile.category}<br>"
             f"状態: {label}<br>"
-            f"KOL: {'はい' if agent.is_influencer else 'いいえ'}<br>"
+            f"インフルエンサー: {'はい' if agent.is_influencer else 'いいえ'}<br>"
             f"影響度: {agent.influence_accumulated:.3f}"
         )
 
