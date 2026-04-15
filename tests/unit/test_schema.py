@@ -15,6 +15,7 @@ from digital_twin.data.schema import (
     ChannelPreference,
     Consumer,
     ConsumerDemographics,
+    ExerciseFrequency,
     Gender,
     InformationChannel,
     LifeStage,
@@ -22,6 +23,9 @@ from digital_twin.data.schema import (
     Region,
     ResponseStyle,
     ScaleUsagePattern,
+    SleepConcern,
+    SleepProduct,
+    SleepProfile,
 )
 
 
@@ -166,3 +170,85 @@ class TestConsumer:
         dumped = consumer.model_dump_json()
         restored = Consumer.model_validate_json(dumped)
         assert restored == consumer
+
+
+class TestSleepProfile:
+    """SleepProfile のバリデーション."""
+
+    def test_build_default(self) -> None:
+        sp = SleepProfile()
+        assert sp.avg_sleep_duration_hours == 7.0
+        assert sp.bedtime == "23:30"
+        assert sp.sleep_quality_5 == 3
+        assert sp.concerns == []
+        assert sp.exercise_frequency == ExerciseFrequency.RARE
+        assert sp.chronotype == "intermediate"
+
+    def test_build_with_concerns(self) -> None:
+        sp = SleepProfile(
+            avg_sleep_duration_hours=5.5,
+            concerns=[SleepConcern.MIDNIGHT_AWAKENING, SleepConcern.POOR_QUALITY],
+            product_usage=[SleepProduct.PILLOW, SleepProduct.AROMA],
+            caffeine_intake_per_day=3,
+            exercise_frequency=ExerciseFrequency.WEEKLY,
+            stress_level_5=4,
+        )
+        assert SleepConcern.MIDNIGHT_AWAKENING in sp.concerns
+        assert sp.caffeine_intake_per_day == 3
+        assert sp.stress_level_5 == 4
+
+    def test_sleep_quality_out_of_range(self) -> None:
+        with pytest.raises(ValidationError):
+            SleepProfile(sleep_quality_5=6)
+        with pytest.raises(ValidationError):
+            SleepProfile(sleep_quality_5=0)
+
+    def test_duration_out_of_range(self) -> None:
+        with pytest.raises(ValidationError):
+            SleepProfile(avg_sleep_duration_hours=-1.0)
+        with pytest.raises(ValidationError):
+            SleepProfile(avg_sleep_duration_hours=25.0)
+
+    def test_caffeine_negative_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            SleepProfile(caffeine_intake_per_day=-1)
+
+
+class TestConsumerWithSleep:
+    """Consumer に SleepProfile を統合できること."""
+
+    def test_sleep_profile_default_none(self) -> None:
+        consumer = Consumer(
+            consumer_id="C100",
+            demographics=ConsumerDemographics(
+                age_group=AgeGroup.AGE_35_44,
+                gender=Gender.FEMALE,
+                region=Region.KANTO,
+            ),
+            category_profile=CategoryProfile(category="寝具"),
+        )
+        assert consumer.sleep_profile is None
+
+    def test_with_sleep_profile_roundtrip(self) -> None:
+        consumer = Consumer(
+            consumer_id="C101",
+            demographics=ConsumerDemographics(
+                age_group=AgeGroup.AGE_35_44,
+                gender=Gender.FEMALE,
+                region=Region.KANTO,
+                life_stage=LifeStage.MARRIED_WITH_CHILDREN,
+            ),
+            category_profile=CategoryProfile(category="寝具"),
+            sleep_profile=SleepProfile(
+                avg_sleep_duration_hours=6.0,
+                concerns=[SleepConcern.MIDNIGHT_AWAKENING],
+                product_usage=[SleepProduct.PILLOW],
+                sleep_quality_5=2,
+                stress_level_5=4,
+            ),
+        )
+        dumped = consumer.model_dump_json()
+        restored = Consumer.model_validate_json(dumped)
+        assert restored == consumer
+        assert restored.sleep_profile is not None
+        assert SleepConcern.MIDNIGHT_AWAKENING in restored.sleep_profile.concerns

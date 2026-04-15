@@ -255,6 +255,24 @@ class SurveyResponse(BaseModel):
     completion_date: date | None = None
 
 
+# --- Sleep Profile ---
+
+
+class SleepProfile(BaseModel):
+    """睡眠プロファイル."""
+
+    avg_sleep_duration_hours: float = Field(default=7.0, ge=0.0, le=24.0)
+    bedtime: str = "23:30"                                      # 就寝時刻 "HH:MM"
+    wake_time: str = "06:30"                                    # 起床時刻 "HH:MM"
+    sleep_quality_5: int = Field(default=3, ge=1, le=5)         # 主観的睡眠満足度（5段階）
+    concerns: list[SleepConcern] = []
+    product_usage: list[SleepProduct] = []
+    caffeine_intake_per_day: int = Field(default=0, ge=0)       # 1日のカフェイン摂取回数
+    exercise_frequency: ExerciseFrequency = ExerciseFrequency.RARE
+    stress_level_5: int = Field(default=3, ge=1, le=5)          # 主観的ストレスレベル
+    chronotype: str = "intermediate"                            # morning / intermediate / evening
+
+
 # --- Consumer (Raw Data Record) ---
 
 
@@ -270,3 +288,4 @@ class Consumer(BaseModel):
     goals: list[PersonaGoal] = []
     factoids: list[Factoid] = []
     personality_traits: list[PersonalityTrait] = []
+    sleep_profile: SleepProfile | None = None
