@@ -43,7 +43,7 @@ class SegmentProfile(BaseModel):
     specialty: str
     bed_size: str
     age_range: str
-    estimated_physicians: int = 0
+    estimated_population: int = 0
     patient_distributions: list[PatientDistribution] = []
     new_drug_receptivity: NewDrugReceptivity = Field(default_factory=NewDrugReceptivity)
     mr_contact: dict[str, float] = {}
@@ -52,7 +52,7 @@ class SegmentProfile(BaseModel):
         """プロンプト注入用のテキストを生成する."""
         lines = [
             f"## セグメントプロファイル（{self.specialty}・{self.bed_size}・{self.age_range}）",
-            f"推計医師数: {self.estimated_physicians}名",
+            f"推計人口: {self.estimated_population}名",
         ]
 
         if self.patient_distributions:
@@ -128,7 +128,7 @@ def build_profile_from_group(
         specialty=specialty,
         bed_size=bed_size,
         age_range=age_range,
-        estimated_physicians=estimated,
+        estimated_population=estimated,
         patient_distributions=distributions,
         new_drug_receptivity=ndr,
         mr_contact=mr,
