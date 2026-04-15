@@ -1,4 +1,4 @@
-# AI-persona Claude Code 指示
+# AI-Consumer-Persona Claude Code 指示
 
 開発ルールの詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照すること。
 プロジェクトの構成・規約・用語は [ai_docs/](ai_docs/) を参照すること。
