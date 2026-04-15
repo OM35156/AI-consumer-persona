@@ -8,7 +8,7 @@ from __future__ import annotations
 import random
 from abc import ABC, abstractmethod
 
-from digital_twin.abm.physician_agent import AdoptionState, PhysicianAgent
+from digital_twin.abm.consumer_agent import AdoptionState, ConsumerAgent
 
 
 class PropagationModel(ABC):
@@ -17,12 +17,12 @@ class PropagationModel(ABC):
     @abstractmethod
     def propagate(
         self,
-        agents: list[PhysicianAgent],
+        agents: list[ConsumerAgent],
         network: dict[int, list[int]],
     ) -> int:
         """1ステップの伝播を実行し、新規採用数を返す."""
 
-    def get_adoption_count(self, agents: list[PhysicianAgent]) -> int:
+    def get_adoption_count(self, agents: list[ConsumerAgent]) -> int:
         """採用済みエージェント数."""
         return sum(1 for a in agents if a.state == AdoptionState.ADOPTED)
 
@@ -45,7 +45,7 @@ class IndependentCascadeModel(PropagationModel):
 
     def propagate(
         self,
-        agents: list[PhysicianAgent],
+        agents: list[ConsumerAgent],
         network: dict[int, list[int]],
     ) -> int:
         self._step_count += 1
@@ -66,7 +66,7 @@ class IndependentCascadeModel(PropagationModel):
                     continue
 
                 prob = self.base_probability * decay_factor
-                if agent.is_kol:
+                if agent.is_influencer:
                     prob += self.kol_boost
 
                 if self._rng.random() < prob:
@@ -99,7 +99,7 @@ class LinearThresholdModel(PropagationModel):
 
     def propagate(
         self,
-        agents: list[PhysicianAgent],
+        agents: list[ConsumerAgent],
         network: dict[int, list[int]],
     ) -> int:
         self._step_count += 1
@@ -120,7 +120,7 @@ class LinearThresholdModel(PropagationModel):
                 if not neighbor or neighbor.state != AdoptionState.ADOPTED:
                     continue
 
-                weight = self.kol_weight if neighbor.is_kol else self.peer_weight
+                weight = self.kol_weight if neighbor.is_influencer else self.peer_weight
                 total_influence += weight * decay_factor
 
             if total_influence > 0:

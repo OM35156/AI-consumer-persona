@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import random
 
-from digital_twin.abm.physician_agent import AgentProfile
+from digital_twin.abm.consumer_agent import AgentProfile
 from digital_twin.data.schema import Physician
 from digital_twin.data.segment_profile import SegmentProfile
 

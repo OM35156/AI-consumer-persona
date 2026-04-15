@@ -9,7 +9,7 @@ from __future__ import annotations
 import networkx as nx
 import plotly.graph_objects as go
 
-from digital_twin.abm.physician_agent import AdoptionState, PhysicianAgent
+from digital_twin.abm.consumer_agent import AdoptionState, ConsumerAgent
 
 # 採用状態ごとの色
 _STATE_COLORS = {
@@ -26,7 +26,7 @@ _STATE_LABELS = {
 
 
 def plot_network(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     network: nx.Graph,
     title: str = "医師ネットワーク — 採用状況",
 ) -> go.Figure:
@@ -61,13 +61,13 @@ def plot_network(
         node_x.append(x)
         node_y.append(y)
         node_color.append(_STATE_COLORS.get(agent.state, "#94A3B8"))
-        node_size.append(20 if agent.is_kol else 10)
+        node_size.append(20 if agent.is_influencer else 10)
         label = _STATE_LABELS.get(agent.state, "不明")
         node_text.append(
             f"ID: {agent.unique_id}<br>"
             f"診療科: {agent.profile.specialty}<br>"
             f"状態: {label}<br>"
-            f"KOL: {'はい' if agent.is_kol else 'いいえ'}<br>"
+            f"KOL: {'はい' if agent.is_influencer else 'いいえ'}<br>"
             f"影響度: {agent.influence_accumulated:.3f}"
         )
 

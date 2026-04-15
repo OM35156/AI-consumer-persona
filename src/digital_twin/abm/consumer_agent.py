@@ -1,7 +1,7 @@
-"""医師エージェント — ABM のエージェント定義.
+"""生活者エージェント — ABM のエージェント定義.
 
-設計書 W8 Day4-5 に対応。セグメントプロファイルから属性を設定し、
-採用閾値に基づいて処方行動を決定する。
+医師版 ABM から派生。セグメントプロファイルから属性を設定し、
+採用閾値に基づいて購買・採用行動を決定する。
 """
 
 from __future__ import annotations
@@ -12,12 +12,12 @@ from enum import StrEnum
 import mesa
 
 # デフォルト値（config で上書き可能）
-DEFAULT_KOL_THRESHOLD = 0.7
+DEFAULT_INFLUENCER_THRESHOLD = 0.7
 DEFAULT_CONSIDERING_FACTOR = 0.5
 
 
 class AdoptionState(StrEnum):
-    """薬剤採用状態."""
+    """採用状態（認知→検討→採用）."""
 
     NOT_ADOPTED = "not_adopted"
     CONSIDERING = "considering"
@@ -28,23 +28,24 @@ class AdoptionState(StrEnum):
 class AgentProfile:
     """エージェントのプロファイル（セグメントプロファイルから設定）."""
 
+    # 注: 医師版のフィールド名が一部残るが、意味的には汎用（#4 で整理予定）
     specialty: str = ""
     bed_size: str = ""
     age_range: str = ""
-    kol_score: float = 0.0
+    kol_score: float = 0.0  # 影響力スコア（KOL/インフルエンサー）
     receptivity: float = 0.5
     adoption_threshold: float = 0.5
-    current_rx_share: float = 0.0
+    current_rx_share: float = 0.0  # 現在のブランド利用シェア
 
 
-class PhysicianAgent(mesa.Agent):
-    """医師エージェント."""
+class ConsumerAgent(mesa.Agent):
+    """生活者エージェント."""
 
     def __init__(
         self,
         model: mesa.Model,
         profile: AgentProfile | None = None,
-        kol_threshold: float = DEFAULT_KOL_THRESHOLD,
+        influencer_threshold: float = DEFAULT_INFLUENCER_THRESHOLD,
         considering_factor: float = DEFAULT_CONSIDERING_FACTOR,
     ) -> None:
         super().__init__(model)
@@ -52,13 +53,13 @@ class PhysicianAgent(mesa.Agent):
         self.state = AdoptionState.NOT_ADOPTED
         self.influence_accumulated = 0.0
         self.adoption_step: int | None = None
-        self._kol_threshold = kol_threshold
+        self._influencer_threshold = influencer_threshold
         self._considering_factor = considering_factor
 
     @property
-    def is_kol(self) -> bool:
-        """KOL かどうか."""
-        return self.profile.kol_score >= self._kol_threshold
+    def is_influencer(self) -> bool:
+        """インフルエンサー（高影響力）かどうか."""
+        return self.profile.kol_score >= self._influencer_threshold
 
     def receive_influence(self, amount: float) -> None:
         """他のエージェントから影響を受ける."""

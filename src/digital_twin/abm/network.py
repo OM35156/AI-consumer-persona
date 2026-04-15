@@ -9,11 +9,11 @@ import random
 
 import networkx as nx
 
-from digital_twin.abm.physician_agent import PhysicianAgent
+from digital_twin.abm.consumer_agent import ConsumerAgent
 
 
 def build_physician_network(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     same_specialty_prob: float = 0.3,
     same_bed_size_prob: float = 0.15,
     kol_connection_prob: float = 0.5,
@@ -47,7 +47,7 @@ def build_physician_network(
                 p += same_bed_size_prob
 
             # KOL 接続（学会接点）
-            if a1.is_kol or a2.is_kol:
+            if a1.is_influencer or a2.is_influencer:
                 p += kol_connection_prob
 
             if rng.random() < min(p, 1.0):
