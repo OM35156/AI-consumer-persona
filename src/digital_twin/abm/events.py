@@ -10,7 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from digital_twin.abm.physician_agent import PhysicianAgent
+from digital_twin.abm.consumer_agent import ConsumerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ DEFAULT_SAFETY_ALERT_FACTOR = 0.5
 
 
 def apply_conference(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     event: ABMEvent,
     kol_multiplier: float = DEFAULT_CONFERENCE_KOL_MULTIPLIER,
     general_multiplier: float = DEFAULT_CONFERENCE_GENERAL_MULTIPLIER,
@@ -55,7 +55,7 @@ def apply_conference(
     for agent in agents:
         if event.target_specialties and agent.profile.specialty not in event.target_specialties:
             continue
-        if agent.is_kol:
+        if agent.is_influencer:
             agent.receive_influence(event.impact_magnitude * kol_multiplier)
         else:
             agent.receive_influence(event.impact_magnitude * general_multiplier)
@@ -64,7 +64,7 @@ def apply_conference(
 
 
 def apply_guideline_revision(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     event: ABMEvent,
     threshold_factor: float = DEFAULT_GUIDELINE_THRESHOLD_FACTOR,
 ) -> int:
@@ -82,7 +82,7 @@ def apply_guideline_revision(
 
 
 def apply_mr_campaign(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     event: ABMEvent,
     impact_factor: float = DEFAULT_MR_CAMPAIGN_FACTOR,
 ) -> int:
@@ -97,7 +97,7 @@ def apply_mr_campaign(
 
 
 def apply_safety_alert(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     event: ABMEvent,
     reduction_factor: float = DEFAULT_SAFETY_ALERT_FACTOR,
 ) -> int:
@@ -139,7 +139,7 @@ class EventScheduler:
             if e.start_step <= step < e.start_step + e.duration_steps
         ]
 
-    def apply_events(self, step: int, agents: list[PhysicianAgent]) -> list[tuple[ABMEvent, int]]:
+    def apply_events(self, step: int, agents: list[ConsumerAgent]) -> list[tuple[ABMEvent, int]]:
         """現在のステップのイベントを全て適用し、(event, affected_count) を返す."""
         results = []
         for event in self.get_active_events(step):

@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from digital_twin.abm.physician_agent import AdoptionState, PhysicianAgent
+from digital_twin.abm.consumer_agent import AdoptionState, ConsumerAgent
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class ABMMetrics:
 
 
 def calculate_metrics(
-    agents: list[PhysicianAgent],
+    agents: list[ConsumerAgent],
     history: list[dict],
 ) -> ABMMetrics:
     """エージェントと実行履歴から拡張メトリクスを算出する."""
@@ -68,8 +68,8 @@ def calculate_metrics(
     }
 
     # KOL vs 非KOL
-    kols = [a for a in agents if a.is_kol]
-    non_kols = [a for a in agents if not a.is_kol]
+    kols = [a for a in agents if a.is_influencer]
+    non_kols = [a for a in agents if not a.is_influencer]
     kol_rate = sum(1 for a in kols if a.state == AdoptionState.ADOPTED) / len(kols) if kols else 0.0
     non_kol_rate = sum(1 for a in non_kols if a.state == AdoptionState.ADOPTED) / len(non_kols) if non_kols else 0.0
 

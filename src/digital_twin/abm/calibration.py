@@ -13,7 +13,7 @@ import numpy as np
 from scipy import optimize
 
 from digital_twin.abm.model import PrescriptionModel
-from digital_twin.abm.physician_agent import AdoptionState, AgentProfile
+from digital_twin.abm.consumer_agent import AdoptionState, AgentProfile
 
 logger = logging.getLogger(__name__)
 
@@ -157,9 +157,9 @@ def _run_simulation(
         agent_profiles, seed=seed,
         kol_influence=kol_influence, peer_influence=peer_influence,
     )
-    for i in range(min(n_initial_adopters, len(model.physician_agents))):
-        model.physician_agents[i].state = AdoptionState.ADOPTED
-        model.physician_agents[i].adoption_step = 0
+    for i in range(min(n_initial_adopters, len(model.consumer_agents))):
+        model.consumer_agents[i].state = AdoptionState.ADOPTED
+        model.consumer_agents[i].adoption_step = 0
 
     history = model.run(steps=steps)
     return [h["adoption_rate"] for h in history]

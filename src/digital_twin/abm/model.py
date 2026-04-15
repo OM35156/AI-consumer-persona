@@ -11,14 +11,14 @@ import logging
 import mesa
 from omegaconf import DictConfig
 
-from digital_twin.abm.network import build_physician_network
-from digital_twin.abm.physician_agent import (
+from digital_twin.abm.consumer_agent import (
     DEFAULT_CONSIDERING_FACTOR,
-    DEFAULT_KOL_THRESHOLD,
+    DEFAULT_INFLUENCER_THRESHOLD,
     AdoptionState,
     AgentProfile,
-    PhysicianAgent,
+    ConsumerAgent,
 )
+from digital_twin.abm.network import build_physician_network
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,8 @@ class PrescriptionModel(mesa.Model):
         self._steps = 0
 
         # agent config
-        kol_threshold = cfg.agent.kol_threshold if cfg else DEFAULT_KOL_THRESHOLD
+        # 注: config キー名 kol_threshold は下位互換のため維持（#4 で configs/ 整理時に改称予定）
+        influencer_threshold = cfg.agent.kol_threshold if cfg else DEFAULT_INFLUENCER_THRESHOLD
         considering_factor = cfg.agent.considering_factor if cfg else DEFAULT_CONSIDERING_FACTOR
 
         # network config
@@ -70,12 +71,12 @@ class PrescriptionModel(mesa.Model):
             }
 
         # エージェント作成
-        self._agents_list: list[PhysicianAgent] = []
+        self._agents_list: list[ConsumerAgent] = []
         for profile in agent_profiles:
-            agent = PhysicianAgent(
+            agent = ConsumerAgent(
                 self,
                 profile=profile,
-                kol_threshold=kol_threshold,
+                influencer_threshold=influencer_threshold,
                 considering_factor=considering_factor,
             )
             self._agents_list.append(agent)
@@ -84,8 +85,8 @@ class PrescriptionModel(mesa.Model):
         self.network = build_physician_network(self._agents_list, seed=net_seed, **net_params)
 
     @property
-    def physician_agents(self) -> list[PhysicianAgent]:
-        """医師エージェント一覧."""
+    def consumer_agents(self) -> list[ConsumerAgent]:
+        """生活者エージェント一覧."""
         return self._agents_list
 
     def step(self) -> None:
@@ -100,13 +101,13 @@ class PrescriptionModel(mesa.Model):
             for neighbor_id in neighbors:
                 neighbor = self._get_agent_by_id(neighbor_id)
                 if neighbor and neighbor.state != AdoptionState.ADOPTED:
-                    influence = self.kol_influence if agent.is_kol else self.peer_influence
+                    influence = self.kol_influence if agent.is_influencer else self.peer_influence
                     neighbor.receive_influence(influence)
 
         for agent in self._agents_list:
             agent.step()
 
-    def _get_agent_by_id(self, agent_id: int) -> PhysicianAgent | None:
+    def _get_agent_by_id(self, agent_id: int) -> ConsumerAgent | None:
         """ID からエージェントを取得する."""
         for agent in self._agents_list:
             if agent.unique_id == agent_id:
