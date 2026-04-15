@@ -1,4 +1,4 @@
-"""Physician persona builder — transforms raw data into rich personas.
+"""Consumer persona builder — transforms raw consumer data into rich personas.
 
 Follows the 'Persona Strategy' book methodology:
 1. Extract factoids from data
@@ -13,17 +13,23 @@ import hashlib
 import random
 
 from digital_twin.data.schema import (
+    AgeGroup,
+    BrandAwareness,
+    CategoryProfile,
+    Consumer,
+    ConsumerDemographics,
     Factoid,
+    Gender,
+    LifeStage,
     PersonaGoal,
     PersonalityTrait,
-    Physician,
-    PromotionChannel,
+    Region,
     SurveyInstrument,
 )
-from digital_twin.persona.profile import HistoricalResponse, PhysicianPersona
+from digital_twin.persona.profile import ConsumerPersona, HistoricalResponse
 
 
-# Japanese names for persona generation
+# 生活者ペルソナ用の日本語フルネーム候補
 _MALE_NAMES = [
     "田中 健一", "鈴木 雅之", "佐藤 和彦", "渡辺 誠", "伊藤 隆",
     "山本 浩二", "中村 大輔", "小林 正樹", "加藤 直樹", "吉田 拓也",
@@ -33,11 +39,12 @@ _MALE_NAMES = [
 _FEMALE_NAMES = [
     "高橋 美咲", "山口 恵子", "中島 由美", "藤田 沙織", "岡田 真理",
     "前田 智子", "石井 朋子", "小川 裕子", "阿部 麻衣", "森 由佳",
+    "清水 綾香", "池田 香織", "橋本 美穂", "斎藤 理恵", "青木 愛",
 ]
 
 
-class PersonaBuilder:
-    """Builds PhysicianPersona objects from raw physician data."""
+class ConsumerPersonaBuilder:
+    """生活者 Consumer データから ConsumerPersona オブジェクトを構築する."""
 
     def __init__(
         self,
@@ -49,50 +56,51 @@ class PersonaBuilder:
 
     def build(
         self,
-        physician: Physician,
-        surveys: list[SurveyInstrument],
+        consumer: Consumer,
+        surveys: list[SurveyInstrument] | None = None,
         training_survey_ids: list[str] | None = None,
-    ) -> PhysicianPersona:
-        """Build a complete physician persona from raw data."""
-
-        persona_id = self._generate_persona_id(physician.physician_id)
+    ) -> ConsumerPersona:
+        """生データから完全な生活者ペルソナを構築する."""
+        persona_id = self._generate_persona_id(consumer.consumer_id)
 
         # Assign a realistic name
-        name = self._assign_name(physician)
-        age = self._infer_age(physician.demographics.age_group.value)
+        name = self._assign_name(consumer)
+        age = self._infer_age(consumer.demographics.age_group.value)
 
         # Extract factoids from data
-        factoids = self._extract_factoids(physician)
+        factoids = self._extract_factoids(consumer)
 
         # Infer goals from behavior patterns
-        goals = self._infer_goals(physician)
+        goals = self._infer_goals(consumer)
 
         # Generate personality traits
-        traits = self._generate_personality_traits(physician)
+        traits = self._generate_personality_traits(consumer)
 
         # Generate catchphrase
-        catchphrase = self._generate_catchphrase(physician, traits)
+        catchphrase = self._generate_catchphrase(consumer, traits)
 
-        # Extract historical responses
-        survey_map = {s.survey_id: s for s in surveys}
-        historical = self._extract_historical_responses(
-            physician, survey_map, training_survey_ids
-        )
+        # Extract historical responses (surveys が与えられた場合のみ)
+        historical: list[HistoricalResponse] = []
+        if surveys:
+            survey_map = {s.survey_id: s for s in surveys}
+            historical = self._extract_historical_responses(
+                consumer, survey_map, training_survey_ids
+            )
 
-        persona = PhysicianPersona(
+        persona = ConsumerPersona(
             persona_id=persona_id,
             name=name,
             age=age,
-            gender=physician.demographics.gender.value,
+            gender=consumer.demographics.gender.value,
             catchphrase=catchphrase,
-            demographics=physician.demographics,
-            prescription_profile=physician.prescription_profile,
-            channel_preferences=physician.channel_preferences,
+            demographics=consumer.demographics,
+            category_profile=consumer.category_profile,
+            channel_preferences=consumer.channel_preferences,
             goals=goals,
             factoids=factoids,
             personality_traits=traits,
-            response_style=physician.response_style,
-            promotion_history=physician.promotion_history,
+            response_style=consumer.response_style,
+            brand_history=consumer.brand_history,
             historical_responses=historical,
         )
 
@@ -102,157 +110,222 @@ class PersonaBuilder:
 
     def build_batch(
         self,
-        physicians: list[Physician],
-        surveys: list[SurveyInstrument],
+        consumers: list[Consumer],
+        surveys: list[SurveyInstrument] | None = None,
         training_survey_ids: list[str] | None = None,
-    ) -> list[PhysicianPersona]:
+    ) -> list[ConsumerPersona]:
         return [
-            self.build(p, surveys, training_survey_ids)
-            for p in physicians
+            self.build(c, surveys, training_survey_ids)
+            for c in consumers
         ]
 
-    def _generate_persona_id(self, physician_id: str) -> str:
-        h = hashlib.sha256(physician_id.encode()).hexdigest()[:12]
-        return f"DR_{h}"
+    def build_sample(self) -> ConsumerPersona:
+        """デモ・テスト用に最小構成のサンプルペルソナを生成する."""
+        sample_consumer = Consumer(
+            consumer_id="SAMPLE_001",
+            demographics=ConsumerDemographics(
+                age_group=AgeGroup.AGE_35_44,
+                gender=Gender.FEMALE,
+                region=Region.KANTO,
+                life_stage=LifeStage.MARRIED_WITH_CHILDREN,
+                occupation="会社員",
+                household_income="600-800万円",
+            ),
+            category_profile=CategoryProfile(
+                category="スキンケア",
+                primary_brands=["資生堂", "ロート製薬"],
+                brand_status={"資生堂": BrandAwareness.ACTIVE_USER},
+                purchase_philosophy="品質と実績を重視、子育てと両立できる時短ケアを探している",
+                price_sensitivity="moderate",
+                new_product_receptivity="moderate",
+            ),
+        )
+        return self.build(sample_consumer)
 
-    def _assign_name(self, physician: Physician) -> str:
-        if physician.demographics.gender.value == "male":
+    def _generate_persona_id(self, consumer_id: str) -> str:
+        h = hashlib.sha256(consumer_id.encode()).hexdigest()[:12]
+        return f"CP_{h}"
+
+    def _assign_name(self, consumer: Consumer) -> str:
+        if consumer.demographics.gender.value == "male":
             return self.rng.choice(_MALE_NAMES)
-        else:
-            return self.rng.choice(_FEMALE_NAMES)
+        return self.rng.choice(_FEMALE_NAMES)
 
     def _infer_age(self, age_group: str) -> int:
+        """AgeGroup enum の value から代表年齢をランダムに割り当てる."""
         ranges = {
-            "30-39": (32, 39),
-            "40-49": (40, 49),
-            "50-59": (50, 59),
-            "60-69": (60, 69),
-            "70+": (70, 75),
+            "18-24": (19, 24),
+            "25-34": (26, 34),
+            "35-44": (36, 44),
+            "45-54": (46, 54),
+            "55-64": (56, 64),
+            "65+": (66, 74),
         }
-        lo, hi = ranges.get(age_group, (45, 55))
+        lo, hi = ranges.get(age_group, (30, 45))
         return self.rng.randint(lo, hi)
 
-    def _extract_factoids(self, physician: Physician) -> list[Factoid]:
-        """Extract factoids from the physician's actual data."""
-        factoids = []
+    def _extract_factoids(self, consumer: Consumer) -> list[Factoid]:
+        """生活者の実データからファクトイドを抽出する."""
+        factoids: list[Factoid] = []
+        cat = consumer.category_profile
 
-        # From prescription profile
-        rx = physician.prescription_profile
-        if rx.primary_drugs:
+        # From category profile
+        if cat.primary_brands:
             factoids.append(Factoid(
                 category="behavior",
-                content=f"{rx.therapeutic_area}領域で主に{', '.join(rx.primary_drugs)}を処方している",
-                data_source="Doctor Mindscape",
+                content=f"{cat.category}では主に{', '.join(cat.primary_brands)}を利用している",
+                data_source="購買履歴",
             ))
 
-        if rx.new_drug_adoption_speed == "early":
+        if cat.new_product_receptivity == "early":
             factoids.append(Factoid(
                 category="preference",
-                content="新薬には積極的で、エビデンスが出ればすぐに採用を検討する",
-                data_source="処方データ",
+                content=f"{cat.category}の新商品には敏感で、話題になればすぐに試してみる",
+                data_source="購買履歴",
             ))
-        elif rx.new_drug_adoption_speed == "late":
+        elif cat.new_product_receptivity == "late":
             factoids.append(Factoid(
                 category="preference",
-                content="新薬の採用には慎重で、十分な実績を確認してから処方を始める",
-                data_source="処方データ",
+                content=f"{cat.category}の新商品には慎重で、口コミや評判を確認してから試す",
+                data_source="購買履歴",
+            ))
+
+        if cat.price_sensitivity == "high":
+            factoids.append(Factoid(
+                category="preference",
+                content="価格に敏感で、同等品があれば必ず安い方を選ぶ",
+                data_source="購買履歴",
+            ))
+        elif cat.price_sensitivity == "low":
+            factoids.append(Factoid(
+                category="preference",
+                content="多少高くても品質や実績のある商品を選ぶ",
+                data_source="購買履歴",
             ))
 
         # From channel preferences
         preferred_channels = [
-            cp for cp in physician.channel_preferences if cp.preferred
+            cp for cp in consumer.channel_preferences if cp.preferred
         ]
         if preferred_channels:
             ch_names = [cp.channel.value for cp in preferred_channels]
             factoids.append(Factoid(
                 category="preference",
-                content=f"情報収集は主に{', '.join(ch_names)}を好む",
-                data_source="Impact Track",
+                content=f"情報収集は主に {', '.join(ch_names)} を好む",
+                data_source="メディア接触調査",
             ))
 
-        # From promotion history
-        if physician.promotion_history:
-            recent = physician.promotion_history[-5:]
-            companies = set(e.pharma_company for e in recent)
+        # From brand history
+        if consumer.brand_history:
+            recent = consumer.brand_history[-5:]
+            brands = {e.brand_name for e in recent}
             factoids.append(Factoid(
                 category="behavior",
-                content=f"最近は{', '.join(companies)}のプロモーションを受けている",
-                data_source="Impact Track",
+                content=f"最近は {', '.join(brands)} の広告に接触している",
+                data_source="広告接触ログ",
             ))
 
         # From response style
-        if physician.response_style.mr_receptivity == "reserved":
+        if consumer.response_style.survey_receptivity == "low":
             factoids.append(Factoid(
                 category="frustration",
-                content="多忙でMRとの面談は短時間で済ませたい。要点を絞った情報提供を求める",
-                data_source="行動データ",
+                content="アンケートには淡白で、長文の質問には答えず要点だけ返す傾向がある",
+                data_source="回答スタイル分析",
+            ))
+
+        # ライフステージ由来の追加ファクトイド
+        life_stage = consumer.demographics.life_stage.value
+        if life_stage == "married_with_children":
+            factoids.append(Factoid(
+                category="situation",
+                content="子育て中で日々忙しく、買い物や情報収集の時間は限られている",
+                data_source="ライフステージ",
+            ))
+        elif life_stage == "retired":
+            factoids.append(Factoid(
+                category="situation",
+                content="退職後で時間にゆとりがあり、じっくり比較検討してから購入する",
+                data_source="ライフステージ",
             ))
 
         # Use pre-existing factoids from data
-        factoids.extend(physician.factoids)
+        factoids.extend(consumer.factoids)
 
         return factoids
 
-    def _infer_goals(self, physician: Physician) -> list[PersonaGoal]:
-        """Infer persona goals from behavioral data."""
-        goals = []
+    def _infer_goals(self, consumer: Consumer) -> list[PersonaGoal]:
+        """行動データからペルソナのゴールを推論する."""
+        goals: list[PersonaGoal] = []
+        cat = consumer.category_profile
+        life_stage = consumer.demographics.life_stage.value
 
-        rx = physician.prescription_profile
-
-        # Clinical goals
-        goals.append(PersonaGoal(
-            goal_type="clinical",
-            description=f"{rx.therapeutic_area}の患者に最適な治療を提供したい",
-            priority=1,
-        ))
-
-        if rx.guideline_adherence == "strict":
+        # ライフスタイル軸のゴール
+        if life_stage == "married_with_children":
             goals.append(PersonaGoal(
-                goal_type="clinical",
-                description="エビデンスとガイドラインに基づいた治療選択を徹底したい",
+                goal_type="lifestyle",
+                description="家族の生活を快適にしつつ、自分の時間も確保したい",
+                priority=1,
+            ))
+        elif life_stage == "single_working":
+            goals.append(PersonaGoal(
+                goal_type="lifestyle",
+                description="仕事とプライベートを充実させ、自分らしい生活を送りたい",
+                priority=1,
+            ))
+        elif life_stage == "retired":
+            goals.append(PersonaGoal(
+                goal_type="lifestyle",
+                description="健康を維持しながら、趣味や家族と過ごす時間を大切にしたい",
+                priority=1,
+            ))
+        else:
+            goals.append(PersonaGoal(
+                goal_type="lifestyle",
+                description="日々の生活をより良くするための選択をしたい",
                 priority=2,
             ))
 
-        # Career goals
-        demo = physician.demographics
-        if demo.is_key_opinion_leader:
+        # カテゴリ軸のゴール
+        category_lower = cat.category.lower()
+        if any(kw in category_lower for kw in ["スキン", "化粧", "美容", "beauty"]):
             goals.append(PersonaGoal(
-                goal_type="career",
-                description="研究成果を学会で発表し、領域の第一人者としての地位を維持したい",
+                goal_type="beauty",
+                description=f"{cat.category}で自分に合う商品を見つけ、自信を持って過ごしたい",
                 priority=2,
             ))
-        elif demo.years_of_experience < 15:
+        elif any(kw in category_lower for kw in ["健康", "サプリ", "health"]):
             goals.append(PersonaGoal(
-                goal_type="career",
-                description="専門性を高め、指導医として後進の育成にも貢献したい",
-                priority=3,
-            ))
-
-        # Product/information goals
-        if rx.new_drug_adoption_speed == "early":
-            goals.append(PersonaGoal(
-                goal_type="product",
-                description="新薬の臨床データをいち早く入手し、患者に最先端の治療を届けたい",
+                goal_type="health",
+                description=f"{cat.category}を通じて健康維持・向上を図りたい",
                 priority=2,
             ))
         else:
             goals.append(PersonaGoal(
-                goal_type="product",
-                description="安全性の高い実績ある治療法を中心に処方を組み立てたい",
+                goal_type="lifestyle",
+                description=f"{cat.category}で納得のいく選択をしたい",
+                priority=3,
+            ))
+
+        # 価格感度軸のゴール
+        if cat.price_sensitivity == "high":
+            goals.append(PersonaGoal(
+                goal_type="savings",
+                description="賢くお得に買い物をして、家計の負担を減らしたい",
                 priority=2,
             ))
 
         # Use pre-existing goals from data
-        goals.extend(physician.goals)
+        goals.extend(consumer.goals)
 
         return goals
 
-    def _generate_personality_traits(self, physician: Physician) -> list[PersonalityTrait]:
-        """Generate personality traits from response style and behavior."""
-        traits = []
+    def _generate_personality_traits(self, consumer: Consumer) -> list[PersonalityTrait]:
+        """回答スタイルと行動から性格特性を生成する."""
+        traits: list[PersonalityTrait] = []
+        style = consumer.response_style
+        cat = consumer.category_profile
 
-        style = physician.response_style
-
+        # Scale usage → 意見表明の強さ
         if style.scale_usage.value == "extreme":
             traits.append(PersonalityTrait(
                 trait_name="明確な態度",
@@ -268,62 +341,79 @@ class PersonaBuilder:
                 trait_name="協調性",
                 description="相手の話をよく聞き、基本的に前向きに受け止める姿勢を持つ",
             ))
+        elif style.scale_usage.value == "balanced":
+            traits.append(PersonalityTrait(
+                trait_name="バランス感覚",
+                description="良い面と悪い面の両方を冷静に評価し、偏りのない判断をする",
+            ))
 
-        if style.mr_receptivity == "reserved":
+        # Survey receptivity → 情報発信の積極性
+        if style.survey_receptivity == "low":
             traits.append(PersonalityTrait(
                 trait_name="効率重視",
-                description="時間に厳しく、短時間で要点を把握したい。無駄な説明は苦手",
+                description="時間を無駄にしたくない。長い質問やアンケートは最小限で済ませたい",
             ))
-        elif style.mr_receptivity == "open":
+        elif style.survey_receptivity == "high":
             traits.append(PersonalityTrait(
-                trait_name="対話好き",
-                description="MRとのディスカッションを通じて情報収集するのが好き。質問も多い",
+                trait_name="発信好き",
+                description="自分の意見や体験を共有するのが好き。アンケートや口コミに積極的",
             ))
 
-        rx = physician.prescription_profile
-        if rx.prescribing_philosophy:
+        # Purchase philosophy をそのまま trait として保持
+        if cat.purchase_philosophy:
             traits.append(PersonalityTrait(
-                trait_name="処方哲学",
-                description=rx.prescribing_philosophy,
+                trait_name="購買哲学",
+                description=cat.purchase_philosophy,
+            ))
+
+        # Influencer 傾向
+        if consumer.demographics.is_influencer:
+            traits.append(PersonalityTrait(
+                trait_name="インフルエンサー気質",
+                description="SNSで発信する機会が多く、自分の選択が周囲に影響を与えると感じている",
             ))
 
         # Use pre-existing traits
-        traits.extend(physician.personality_traits)
+        traits.extend(consumer.personality_traits)
 
         return traits
 
     def _generate_catchphrase(
         self,
-        physician: Physician,
+        consumer: Consumer,
         traits: list[PersonalityTrait],
     ) -> str:
-        """Generate a catchphrase that captures the persona's essence."""
-        rx = physician.prescription_profile
-        demo = physician.demographics
+        """ペルソナの本質を表すキャッチフレーズを生成する."""
+        cat = consumer.category_profile
+        life_stage = consumer.demographics.life_stage.value
 
+        # (life_stage, new_product_receptivity) で分岐
         templates = {
-            ("early", "open"): f"「新しいエビデンスが出たらすぐに検討したい。{rx.therapeutic_area}の患者さんのために」",
-            ("early", "reserved"): f"「データを見せてくれ。良ければすぐ採用する」",
-            ("late", "open"): f"「じっくり話を聞くが、処方を変えるにはしっかりした根拠が必要だ」",
-            ("late", "reserved"): f"「安全性データが十分に蓄積されてから判断したい」",
-            ("moderate", "open"): f"「バランスよく情報収集して、患者にとってベストな選択をしたい」",
-            ("moderate", "reserved"): f"「忙しいが、{rx.therapeutic_area}の最新動向は押さえておきたい」",
-            ("moderate", "moderate"): f"「エビデンスと臨床経験の両方を大事にしたい」",
+            ("married_with_children", "early"): "「忙しいけど、良い商品があれば家族のためにすぐ試したい」",
+            ("married_with_children", "late"): "「家族に使うものは口コミと実績を確認してから選びたい」",
+            ("married_with_children", "moderate"): "「家族の生活を少しでも快適にできる商品を見つけたい」",
+            ("single_working", "early"): "「気になったものはすぐ試す。仕事で疲れた自分へのご褒美も忘れない」",
+            ("single_working", "late"): "「独り暮らしは自分の判断が全て。失敗したくないから慎重に選ぶ」",
+            ("single_working", "moderate"): "「仕事も生活もバランスよく、自分に合うものを選びたい」",
+            ("student", "early"): "「SNSで話題のものはとりあえずチェック、合えばリピートする」",
+            ("retired", "late"): "「じっくり比べて、長く付き合える商品を選びたい」",
+            ("retired", "moderate"): "「余裕のある時間で、納得のいく買い物をしたい」",
+            ("empty_nest", "moderate"): "「子育てが一段落した今、自分のための選択を楽しみたい」",
         }
 
-        key = (rx.new_drug_adoption_speed, physician.response_style.mr_receptivity)
-        return templates.get(key, f"「{rx.therapeutic_area}の患者さんに最善の医療を」")
+        key = (life_stage, cat.new_product_receptivity)
+        return templates.get(key, f"「{cat.category}で自分らしい選択をしたい」")
 
     def _extract_historical_responses(
         self,
-        physician: Physician,
+        consumer: Consumer,
         survey_map: dict[str, SurveyInstrument],
         training_survey_ids: list[str] | None,
     ) -> list[HistoricalResponse]:
-        """Extract historical responses as few-shot examples."""
+        """過去の調査回答を few-shot 例として抽出する."""
         historical: list[HistoricalResponse] = []
 
-        for sr in physician.survey_responses:
+        for sr in consumer.survey_responses:
             if training_survey_ids and sr.survey_id not in training_survey_ids:
                 continue
 
@@ -354,9 +444,9 @@ class PersonaBuilder:
             cats = list(by_cat.keys())
             idx = 0
             while len(selected) < self.max_historical and any(by_cat.values()):
-                cat = cats[idx % len(cats)]
-                if by_cat.get(cat):
-                    selected.append(by_cat[cat].pop(0))
+                cat_key = cats[idx % len(cats)]
+                if by_cat.get(cat_key):
+                    selected.append(by_cat[cat_key].pop(0))
                 idx += 1
                 cats = [c for c in cats if by_cat.get(c)]
             return selected
