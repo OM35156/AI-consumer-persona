@@ -2,8 +2,7 @@
 
 from pathlib import Path
 
-from omegaconf import OmegaConf, DictConfig
-
+from omegaconf import DictConfig, OmegaConf
 
 _CONFIG_DIR = Path(__file__).resolve().parents[3] / "configs"
 

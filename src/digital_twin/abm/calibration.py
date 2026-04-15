@@ -12,8 +12,8 @@ from dataclasses import dataclass, field
 import numpy as np
 from scipy import optimize
 
-from digital_twin.abm.model import PrescriptionModel
 from digital_twin.abm.consumer_agent import AdoptionState, AgentProfile
+from digital_twin.abm.model import PrescriptionModel
 
 logger = logging.getLogger(__name__)
 

@@ -18,7 +18,6 @@ from digital_twin.data.schema import (
 )
 from digital_twin.persona.profile import PhysicianPersona
 
-
 # --- Mode 1: Promotion Response Simulation ---
 
 

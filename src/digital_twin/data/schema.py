@@ -8,22 +8,20 @@
 from __future__ import annotations
 
 from datetime import date
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
-
 
 # --- Enums ---
 
 
-class Gender(str, Enum):
+class Gender(StrEnum):
     MALE = "male"
     FEMALE = "female"
     OTHER = "other"
 
 
-class AgeGroup(str, Enum):
+class AgeGroup(StrEnum):
     AGE_18_24 = "18-24"
     AGE_25_34 = "25-34"
     AGE_35_44 = "35-44"
@@ -32,7 +30,7 @@ class AgeGroup(str, Enum):
     AGE_65_PLUS = "65+"
 
 
-class Region(str, Enum):
+class Region(StrEnum):
     HOKKAIDO = "hokkaido"
     TOHOKU = "tohoku"
     KANTO = "kanto"
@@ -43,7 +41,7 @@ class Region(str, Enum):
     KYUSHU = "kyushu"
 
 
-class LifeStage(str, Enum):
+class LifeStage(StrEnum):
     """ライフステージ."""
     STUDENT = "student"
     SINGLE_WORKING = "single_working"
@@ -53,7 +51,7 @@ class LifeStage(str, Enum):
     RETIRED = "retired"
 
 
-class InformationChannel(str, Enum):
+class InformationChannel(StrEnum):
     """情報接触チャネル."""
     TV_CM = "tv_cm"
     WEB_AD = "web_ad"
@@ -66,7 +64,7 @@ class InformationChannel(str, Enum):
     EC_SITE = "ec_site"
 
 
-class PurchaseIntent(str, Enum):
+class PurchaseIntent(StrEnum):
     """購買意向."""
     DEFINITELY_BUY = "definitely_buy"
     PROBABLY_BUY = "probably_buy"
@@ -75,7 +73,7 @@ class PurchaseIntent(str, Enum):
     DEFINITELY_NOT = "definitely_not"
 
 
-class BrandAwareness(str, Enum):
+class BrandAwareness(StrEnum):
     """ブランド認知状態."""
     ACTIVE_USER = "active_user"
     PAST_USER = "past_user"
@@ -83,7 +81,7 @@ class BrandAwareness(str, Enum):
     UNAWARE = "unaware"
 
 
-class ScaleUsagePattern(str, Enum):
+class ScaleUsagePattern(StrEnum):
     """回答スタイル傾向."""
     EXTREME = "extreme"
     MODERATE = "moderate"
@@ -91,7 +89,7 @@ class ScaleUsagePattern(str, Enum):
     BALANCED = "balanced"
 
 
-class QuestionType(str, Enum):
+class QuestionType(StrEnum):
     SINGLE_CHOICE = "single_choice"
     MULTIPLE_CHOICE = "multiple_choice"
     LIKERT_5 = "likert_5"
@@ -182,7 +180,7 @@ class SurveyQuestion(BaseModel):
     question_id: str
     question_text: str
     question_type: QuestionType
-    options: Optional[list[str]] = None
+    options: list[str] | None = None
     category: str = ""
 
 
@@ -205,7 +203,7 @@ class SurveyInstrument(BaseModel):
     description: str = ""
     questions: list[SurveyQuestion]
     target_category: str = ""
-    survey_date: Optional[date] = None
+    survey_date: date | None = None
     promotion_scenarios: list[PromotionScenario] = []
 
 
@@ -213,7 +211,7 @@ class QuestionResponse(BaseModel):
     """個別設問への回答."""
     question_id: str
     response_value: str | int | float | list[str] | None = None
-    free_text: Optional[str] = None
+    free_text: str | None = None
 
 
 class SurveyResponse(BaseModel):
@@ -221,7 +219,7 @@ class SurveyResponse(BaseModel):
     respondent_id: str
     survey_id: str
     responses: list[QuestionResponse]
-    completion_date: Optional[date] = None
+    completion_date: date | None = None
 
 
 # --- Consumer (Raw Data Record) ---

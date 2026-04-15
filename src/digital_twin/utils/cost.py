@@ -3,7 +3,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
 
-
 # Approximate pricing per 1M tokens (USD) as of 2025
 _PRICING = {
     "claude-sonnet-4-20250514": {"input": 3.0, "output": 15.0},

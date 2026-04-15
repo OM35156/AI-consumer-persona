@@ -47,7 +47,7 @@ class ValidationReport:
 
     def summary(self) -> str:
         lines = [
-            f"=== Validation Report ===",
+            "=== Validation Report ===",
             f"Respondents: {self.n_respondents}",
             f"Questions: {self.n_questions}",
             f"Overall: {'PASS' if self.overall_pass else 'FAIL'} ({self.pass_rate:.0%} metrics passed)",
@@ -89,7 +89,7 @@ def js_divergence(
         value=js,
         threshold=threshold,
         passed=js <= threshold,
-        details=f"Real dist: {dict(zip(all_values, real_dist.round(3)))}"
+        details=f"Real dist: {dict(zip(all_values, real_dist.round(3), strict=False))}"
     )
 
 
