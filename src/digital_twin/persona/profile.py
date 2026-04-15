@@ -14,6 +14,8 @@ Key concepts from the book:
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from digital_twin.data.schema import (
@@ -21,11 +23,13 @@ from digital_twin.data.schema import (
     Factoid,
     PersonaGoal,
     PersonalityTrait,
-    PhysicianDemographics,
-    PrescriptionProfile,
-    PromotionExposure,
     ResponseStyle,
 )
+
+# NOTE: 医師版から生活者版への移行途中のため、PhysicianDemographics /
+# PrescriptionProfile / PromotionExposure は schema.py から削除済み。
+# クラス本体の型注釈は Any で暫定化している。#2 で ConsumerDemographics /
+# CategoryProfile / BrandExposure へ置換予定。
 
 
 class PhysicianPersona(BaseModel):
@@ -44,8 +48,9 @@ class PhysicianPersona(BaseModel):
     catchphrase: str = ""  # このペルソナを象徴する一言
 
     # --- Professional Profile ---
-    demographics: PhysicianDemographics
-    prescription_profile: PrescriptionProfile
+    # TODO(#2): Any → ConsumerDemographics / CategoryProfile へ置換
+    demographics: Any = None
+    prescription_profile: Any = None
     channel_preferences: list[ChannelPreference] = []
 
     # --- Persona Strategy Components ---
@@ -57,7 +62,8 @@ class PhysicianPersona(BaseModel):
     response_style: ResponseStyle = Field(default_factory=ResponseStyle)
 
     # --- Historical Data ---
-    promotion_history: list[PromotionExposure] = []
+    # TODO(#2): Any → BrandExposure へ置換
+    promotion_history: list[Any] = []
     historical_responses: list[HistoricalResponse] = []
 
     # --- Generated Narrative ---
