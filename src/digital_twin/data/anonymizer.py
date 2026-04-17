@@ -1,16 +1,18 @@
-"""De-identification and anonymization pipeline for physician data."""
+"""匿名化パイプライン — k-匿名性の確認とセル抑制."""
 
 import hashlib
 from collections import Counter
 from dataclasses import dataclass
 
-from digital_twin.data.schema import Physician
+from digital_twin.data.schema import Consumer
 
 
 @dataclass
 class AnonymizationReport:
-    total_physicians: int
-    suppressed_physicians: int
+    """匿名化結果レポート."""
+
+    total_consumers: int
+    suppressed_consumers: int
     k_anonymity_achieved: int
     demographic_groups: int
     smallest_group_size: int
@@ -18,24 +20,28 @@ class AnonymizationReport:
 
     @property
     def is_safe(self) -> bool:
-        return self.k_anonymity_achieved >= 5 and self.suppressed_physicians == 0
+        return self.k_anonymity_achieved >= 5 and self.suppressed_consumers == 0
 
 
-def _demographic_key(p: Physician) -> tuple:
-    """Quasi-identifier tuple for k-anonymity."""
+def _demographic_key(c: Consumer) -> tuple:
+    """k-匿名性判定用の quasi-identifier タプル.
+
+    生活者版では age_group × gender × region × life_stage を準識別子とする。
+    """
     return (
-        p.demographics.age_group.value,
-        p.demographics.gender.value,
-        p.demographics.region.value,
-        p.demographics.specialty.value,
+        c.demographics.age_group.value,
+        c.demographics.gender.value,
+        c.demographics.region.value,
+        c.demographics.life_stage.value,
     )
 
 
 def check_k_anonymity(
-    physicians: list[Physician],
+    consumers: list[Consumer],
     k: int = 5,
 ) -> AnonymizationReport:
-    groups = Counter(_demographic_key(p) for p in physicians)
+    """k-匿名性を確認する."""
+    groups = Counter(_demographic_key(c) for c in consumers)
     smallest = min(groups.values()) if groups else 0
     violations = {key: count for key, count in groups.items() if count < k}
 
@@ -45,8 +51,8 @@ def check_k_anonymity(
     ]
 
     return AnonymizationReport(
-        total_physicians=len(physicians),
-        suppressed_physicians=0,
+        total_consumers=len(consumers),
+        suppressed_consumers=0,
         k_anonymity_achieved=smallest,
         demographic_groups=len(groups),
         smallest_group_size=smallest,
@@ -55,33 +61,36 @@ def check_k_anonymity(
 
 
 def enforce_k_anonymity(
-    physicians: list[Physician],
+    consumers: list[Consumer],
     k: int = 5,
-) -> tuple[list[Physician], AnonymizationReport]:
-    groups = Counter(_demographic_key(p) for p in physicians)
+) -> tuple[list[Consumer], AnonymizationReport]:
+    """k 未満のグループを抑制する."""
+    groups = Counter(_demographic_key(c) for c in consumers)
     safe_keys = {key for key, count in groups.items() if count >= k}
 
-    safe = [p for p in physicians if _demographic_key(p) in safe_keys]
-    suppressed = len(physicians) - len(safe)
+    safe = [c for c in consumers if _demographic_key(c) in safe_keys]
+    suppressed = len(consumers) - len(safe)
 
     report = check_k_anonymity(safe, k)
-    report.suppressed_physicians = suppressed
+    report.suppressed_consumers = suppressed
 
     if suppressed > 0:
-        report.warnings.append(f"Suppressed {suppressed} physicians from small groups")
+        report.warnings.append(f"Suppressed {suppressed} consumers from small groups")
 
     return safe, report
 
 
-def strip_pii(physician: Physician) -> Physician:
-    hashed_id = hashlib.sha256(physician.physician_id.encode()).hexdigest()[:12]
-    return physician.model_copy(update={"physician_id": f"ANON_{hashed_id}"})
+def strip_pii(consumer: Consumer) -> Consumer:
+    """consumer_id をハッシュ化した匿名 ID に置換する."""
+    hashed_id = hashlib.sha256(consumer.consumer_id.encode()).hexdigest()[:12]
+    return consumer.model_copy(update={"consumer_id": f"ANON_{hashed_id}"})
 
 
 def anonymize_dataset(
-    physicians: list[Physician],
+    consumers: list[Consumer],
     k: int = 5,
-) -> tuple[list[Physician], AnonymizationReport]:
-    stripped = [strip_pii(p) for p in physicians]
+) -> tuple[list[Consumer], AnonymizationReport]:
+    """PII 除去 + k-匿名性抑制を適用する."""
+    stripped = [strip_pii(c) for c in consumers]
     safe, report = enforce_k_anonymity(stripped, k)
     return safe, report
