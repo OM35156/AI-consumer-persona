@@ -175,7 +175,7 @@ async def validate_results(req: ValidateRequest) -> ValidateResponse:
     """ホールドアウトデータに対するバリデーションを実行する。"""
     from digital_twin.evaluation.validator import validate
 
-    if not state.holdout_physicians:
+    if not state.holdout_consumers:
         raise HTTPException(status_code=400, detail="No holdout data available")
 
     survey = state.get_survey(req.survey_id)
@@ -184,8 +184,8 @@ async def validate_results(req: ValidateRequest) -> ValidateResponse:
 
     # ホールドアウトのペルソナでシミュレーション実行
     holdout_personas = [
-        state.get_persona(ph.physician_id)
-        for ph in state.holdout_physicians
+        state.get_persona(c.consumer_id)
+        for c in state.holdout_consumers
     ]
     holdout_personas = [p for p in holdout_personas if p is not None]
 
@@ -199,7 +199,7 @@ async def validate_results(req: ValidateRequest) -> ValidateResponse:
     )
 
     report = validate(
-        real_respondents=state.holdout_physicians,
+        real_respondents=state.holdout_consumers,
         simulation_results=sim_results,
         validation_survey_id=req.survey_id,
         js_threshold=req.js_threshold,
