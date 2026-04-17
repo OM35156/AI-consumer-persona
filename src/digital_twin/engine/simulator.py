@@ -1,4 +1,4 @@
-"""Core simulation engine for physician persona.
+"""生活者ペルソナのシミュレーションエンジン.
 
 Two simulation modes:
 1. Promotion simulation: persona reacts to a promotion scenario
@@ -21,7 +21,7 @@ from digital_twin.engine.prompt import (
     build_survey_prompt,
     build_survey_response_schema,
 )
-from digital_twin.persona.profile import PhysicianPersona
+from digital_twin.persona.profile import ConsumerPersona
 from digital_twin.rag.context_builder import ContextBuilder
 from digital_twin.rag.search_client import PersonaSearchClient
 from digital_twin.utils.cost import CostTracker
@@ -76,7 +76,7 @@ class DialogueResult:
 
 
 class Simulator:
-    """Physician persona simulation engine using Claude API."""
+    """生活者ペルソナシミュレーションエンジン（Claude API）."""
 
     def __init__(
         self,
@@ -101,7 +101,7 @@ class Simulator:
 
     def simulate_promotion(
         self,
-        persona: PhysicianPersona,
+        persona: ConsumerPersona,
         scenario: PromotionScenario,
         replication_id: int = 0,
     ) -> PromotionSimResult:
@@ -151,7 +151,7 @@ class Simulator:
 
     async def _simulate_promotion_async(
         self,
-        persona: PhysicianPersona,
+        persona: ConsumerPersona,
         scenario: PromotionScenario,
         replication_id: int = 0,
     ) -> PromotionSimResult:
@@ -200,14 +200,14 @@ class Simulator:
 
     async def simulate_promotion_batch_async(
         self,
-        personas: list[PhysicianPersona],
+        personas: list[ConsumerPersona],
         scenario: PromotionScenario,
         replications: int = 3,
     ) -> list[PromotionSimResult]:
         """Simulate multiple personas' reactions to a promotion."""
         semaphore = asyncio.Semaphore(self.max_concurrent)
 
-        async def _run(persona: PhysicianPersona, rep: int) -> PromotionSimResult:
+        async def _run(persona: ConsumerPersona, rep: int) -> PromotionSimResult:
             async with semaphore:
                 logger.info(
                     "Simulating %s (rep=%d) for scenario=%s",
@@ -231,7 +231,7 @@ class Simulator:
 
     def simulate_promotion_batch(
         self,
-        personas: list[PhysicianPersona],
+        personas: list[ConsumerPersona],
         scenario: PromotionScenario,
         replications: int = 3,
     ) -> list[PromotionSimResult]:
@@ -243,7 +243,7 @@ class Simulator:
 
     def simulate_survey(
         self,
-        persona: PhysicianPersona,
+        persona: ConsumerPersona,
         survey: SurveyInstrument,
         replication_id: int = 0,
     ) -> SurveySimResult:
@@ -293,7 +293,7 @@ class Simulator:
 
     async def _simulate_survey_async(
         self,
-        persona: PhysicianPersona,
+        persona: ConsumerPersona,
         survey: SurveyInstrument,
         replication_id: int = 0,
     ) -> SurveySimResult:
@@ -343,14 +343,14 @@ class Simulator:
 
     async def simulate_survey_batch_async(
         self,
-        personas: list[PhysicianPersona],
+        personas: list[ConsumerPersona],
         survey: SurveyInstrument,
         replications: int = 3,
     ) -> list[SurveySimResult]:
         """複数ペルソナの Survey 回答を非同期バッチ実行する。"""
         semaphore = asyncio.Semaphore(self.max_concurrent)
 
-        async def _run(persona: PhysicianPersona, rep: int) -> SurveySimResult:
+        async def _run(persona: ConsumerPersona, rep: int) -> SurveySimResult:
             async with semaphore:
                 logger.info(
                     "Simulating %s (rep=%d) for survey=%s",
@@ -374,7 +374,7 @@ class Simulator:
 
     def simulate_survey_batch(
         self,
-        personas: list[PhysicianPersona],
+        personas: list[ConsumerPersona],
         survey: SurveyInstrument,
         replications: int = 3,
     ) -> list[SurveySimResult]:
@@ -387,7 +387,7 @@ class Simulator:
 
     def simulate_dialogue(
         self,
-        persona: PhysicianPersona,
+        persona: ConsumerPersona,
         query: str,
         segment: dict | None = None,
         product: str | None = None,

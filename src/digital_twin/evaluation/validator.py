@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 
-from digital_twin.data.schema import Physician
+from digital_twin.data.schema import Consumer
 from digital_twin.engine.simulator import SurveySimResult
 from digital_twin.evaluation.metrics import (
     MetricResult,
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def extract_responses_by_question(
-    respondents: list[Physician],
+    respondents: list[Consumer],
     survey_id: str,
 ) -> dict[str, list]:
     """Extract actual responses grouped by question ID.
@@ -66,7 +66,7 @@ def extract_simulated_by_question(
 
 
 def validate(
-    real_respondents: list[Physician],
+    real_respondents: list[Consumer],
     simulation_results: list[SurveySimResult],
     validation_survey_id: str,
     js_threshold: float = 0.10,

@@ -1,8 +1,8 @@
-"""Prompt construction for physician persona simulation.
+"""生活者ペルソナシミュレーション用のプロンプト構築.
 
 Two main simulation modes:
-1. Promotion Response: Present promotion scenario → get prescription intent
-2. Survey Response: Present survey questions → get structured answers
+1. Promotion Response: プロモーション提示 → 購買意向を取得
+2. Survey Response: 調査設問提示 → 構造化された回答を取得
 
 Both use the persona's system prompt (from profile.py) as grounding.
 """
@@ -16,7 +16,7 @@ from digital_twin.data.schema import (
     QuestionType,
     SurveyInstrument,
 )
-from digital_twin.persona.profile import PhysicianPersona
+from digital_twin.persona.profile import ConsumerPersona, _channel_ja
 
 # --- Mode 1: Promotion Response Simulation ---
 
@@ -25,27 +25,26 @@ PROMOTION_PROMPT_TEMPLATE = """\
 以下のプロモーションを受けました。あなた（{name}）として、率直に反応してください。
 
 ## プロモーション情報
-- 製薬企業: {pharma_company}
-- 製品名: {product_name}
-- 疾患領域: {therapeutic_area}
+- ブランド名: {brand_name}
+- カテゴリ: {category}
 - チャネル: {channel}
-- 新薬: {is_new_drug_ja}
+- 新商品: {is_new_product_ja}
+- ターゲット: {target_audience}
 
 ### キーメッセージ
 {key_message}
 
 {detail_section}
-{clinical_data_section}
 
 ## 回答してください
 
 以下のJSON形式で、あなたの反応を返してください。
-一人称で、あなたの処方哲学・日常・性格に基づいた具体的な反応をしてください。
+一人称で、あなたの購買哲学・日常・性格に基づいた具体的な反応をしてください。
 
 ```json
 {{
-  "prescription_intent": "increase / maintain / decrease / start / no_intent のいずれか",
-  "intent_reason": "処方意向の理由（1-2文）",
+  "purchase_intent": "definitely_buy / probably_buy / might_buy / probably_not / definitely_not のいずれか",
+  "intent_reason": "購買意向の理由（1-2文）",
   "message_evaluation": "キーメッセージへの評価（+2:喜ぶ / +1:役立つ / 0:無関心 / -1:困惑する）",
   "message_feedback": "キーメッセージへの具体的な一人称コメント",
   "channel_fit": "このチャネルが自分に合っているか（1-5, 5が最適）",
@@ -56,65 +55,62 @@ PROMOTION_PROMPT_TEMPLATE = """\
 
 
 def build_promotion_prompt(
-    persona: PhysicianPersona,
+    persona: ConsumerPersona,
     scenario: PromotionScenario,
 ) -> tuple[str, str]:
-    """Build system + user prompt for promotion response simulation.
+    """プロモーション反応シミュレーション用のプロンプトを構築する.
 
     Returns:
         (system_prompt, user_prompt)
     """
     system_prompt = persona.to_system_prompt()
 
-    # Add promotion history context
-    history = persona.get_promotion_history_summary()
+    # ブランド接触履歴コンテキストを追加
+    history = persona.get_brand_history_summary()
     if history:
         system_prompt += "\n\n" + history
 
-    # Add few-shot examples
+    # few-shot 例を追加
     few_shot = persona.get_few_shot_examples()
     if few_shot:
         system_prompt += "\n\n" + few_shot
 
     detail_section = ""
     if scenario.detail_content:
-        detail_section = f"\n### ディテール内容\n{scenario.detail_content}"
+        detail_section = f"\n### 詳細内容\n{scenario.detail_content}"
 
-    clinical_data_section = ""
-    if scenario.clinical_data_summary:
-        clinical_data_section = f"\n### 臨床データ\n{scenario.clinical_data_summary}"
-
-    from digital_twin.persona.profile import _channel_ja
     channel_name = _channel_ja(scenario.channel.value)
 
     user_prompt = PROMOTION_PROMPT_TEMPLATE.format(
         name=persona.name,
-        pharma_company=scenario.pharma_company,
-        product_name=scenario.product_name,
-        therapeutic_area=scenario.therapeutic_area,
+        brand_name=scenario.brand_name,
+        category=scenario.category,
         channel=channel_name,
-        is_new_drug_ja="はい" if scenario.is_new_drug else "いいえ",
+        is_new_product_ja="はい" if scenario.is_new_product else "いいえ",
+        target_audience=scenario.target_audience or "一般",
         key_message=scenario.key_message,
         detail_section=detail_section,
-        clinical_data_section=clinical_data_section,
     )
 
     return system_prompt, user_prompt
 
 
 def build_promotion_response_schema() -> dict:
-    """JSON schema for structured promotion response."""
+    """プロモーション反応の JSON スキーマ."""
     return {
         "type": "object",
         "properties": {
-            "prescription_intent": {
+            "purchase_intent": {
                 "type": "string",
-                "enum": ["increase", "maintain", "decrease", "start", "no_intent"],
-                "description": "今後の処方意向",
+                "enum": [
+                    "definitely_buy", "probably_buy", "might_buy",
+                    "probably_not", "definitely_not",
+                ],
+                "description": "今後の購買意向",
             },
             "intent_reason": {
                 "type": "string",
-                "description": "処方意向の理由（一人称で）",
+                "description": "購買意向の理由（一人称で）",
             },
             "message_evaluation": {
                 "type": "integer",
@@ -141,7 +137,7 @@ def build_promotion_response_schema() -> dict:
             },
         },
         "required": [
-            "prescription_intent",
+            "purchase_intent",
             "intent_reason",
             "message_evaluation",
             "message_feedback",
@@ -159,7 +155,7 @@ SURVEY_PROMPT_TEMPLATE = """\
 以下の調査に、あなた（{name}）として回答してください。
 
 調査名: {survey_name}
-対象疾患: {target_disease}
+対象カテゴリ: {target_category}
 
 {questions_block}
 
@@ -174,17 +170,17 @@ SURVEY_PROMPT_TEMPLATE = """\
 
 
 def build_survey_prompt(
-    persona: PhysicianPersona,
+    persona: ConsumerPersona,
     survey: SurveyInstrument,
 ) -> tuple[str, str]:
-    """Build system + user prompt for survey response simulation.
+    """調査回答シミュレーション用のプロンプトを構築する.
 
     Returns:
         (system_prompt, user_prompt)
     """
     system_prompt = persona.to_system_prompt()
 
-    history = persona.get_promotion_history_summary()
+    history = persona.get_brand_history_summary()
     if history:
         system_prompt += "\n\n" + history
 
@@ -195,6 +191,29 @@ def build_survey_prompt(
     user_prompt = _build_survey_user_prompt(persona.name, survey)
 
     return system_prompt, user_prompt
+
+
+def build_survey_response_schema(survey: SurveyInstrument) -> dict:
+    """調査回答の JSON スキーマを構築する."""
+    properties = {}
+    required = []
+
+    for q in survey.questions:
+        prop: dict = {}
+        if q.question_type in (QuestionType.SINGLE_CHOICE, QuestionType.FREE_TEXT):
+            prop = {"type": "string"}
+        elif q.question_type == QuestionType.MULTIPLE_CHOICE:
+            prop = {"type": "array", "items": {"type": "string"}}
+        elif q.question_type in (QuestionType.LIKERT_5, QuestionType.LIKERT_7, QuestionType.NUMERIC):
+            prop = {"type": "number"}
+        else:
+            prop = {"type": "string"}
+
+        prop["description"] = q.question_text
+        properties[q.question_id] = prop
+        required.append(q.question_id)
+
+    return {"type": "object", "properties": properties, "required": required}
 
 
 def _build_survey_user_prompt(name: str, survey: SurveyInstrument) -> str:
@@ -227,51 +246,7 @@ def _build_survey_user_prompt(name: str, survey: SurveyInstrument) -> str:
     return SURVEY_PROMPT_TEMPLATE.format(
         name=name,
         survey_name=survey.survey_name,
-        target_disease=survey.target_disease or "一般",
+        target_category=survey.target_category or "一般",
         questions_block=questions_block,
         example_json=example_json,
     )
-
-
-def build_survey_response_schema(survey: SurveyInstrument) -> dict:
-    """Build JSON schema for structured survey output."""
-    properties = {}
-    required = []
-
-    for q in survey.questions:
-        required.append(q.question_id)
-
-        if q.question_type == QuestionType.SINGLE_CHOICE and q.options:
-            properties[q.question_id] = {
-                "type": "string",
-                "enum": q.options,
-                "description": q.question_text,
-            }
-        elif q.question_type == QuestionType.MULTIPLE_CHOICE and q.options:
-            properties[q.question_id] = {
-                "type": "array",
-                "items": {"type": "string", "enum": q.options},
-                "description": q.question_text,
-            }
-        elif q.question_type in (QuestionType.LIKERT_5, QuestionType.LIKERT_7) and q.options:
-            properties[q.question_id] = {
-                "type": "string",
-                "enum": q.options,
-                "description": q.question_text,
-            }
-        elif q.question_type == QuestionType.NUMERIC:
-            properties[q.question_id] = {
-                "type": "number",
-                "description": q.question_text,
-            }
-        elif q.question_type == QuestionType.FREE_TEXT:
-            properties[q.question_id] = {
-                "type": "string",
-                "description": q.question_text,
-            }
-
-    return {
-        "type": "object",
-        "properties": properties,
-        "required": required,
-    }
