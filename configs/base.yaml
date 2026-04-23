@@ -41,9 +41,16 @@ embedding:
 abm:
   step_unit: "month"        # month / week / quarter
   step_label: "ヶ月"
+  funnel:
+    stages: ["unaware", "aware", "interested", "purchased", "repeat"]
+    stage_labels:
+      unaware: "未認知"
+      aware: "認知"
+      interested: "関心"
+      purchased: "購買"
+      repeat: "リピート"
   agent:
     kol_threshold: 0.7       # KOL 判定閾値
-    considering_factor: 0.5  # 閾値の何割で「検討中」に遷移するか
   network:
     same_specialty_prob: 0.3
     same_bed_size_prob: 0.15
@@ -52,6 +59,7 @@ abm:
   influence:
     kol_influence: 0.15
     peer_influence: 0.05
+    repeat_multiplier: 1.5   # リピーターの口コミ強化係数
   propagation:
     default_model: "linear_threshold"  # linear_threshold / independent_cascade
     base_probability: 0.05

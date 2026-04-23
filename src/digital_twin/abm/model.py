@@ -1,7 +1,7 @@
-"""処方シミュレーションモデル — ABM のメインモデル.
+"""社会シミュレーションモデル — ABM のメインモデル.
 
-設計書 W8 Day4-5 に対応。エージェント集団、ネットワーク、
-タイムステップを管理する。configs/base.yaml の abm セクションから設定を読み込む。
+生活者エージェント集団のネットワーク上で商品浸透ファネル
+（未認知→認知→関心→購買→リピート）をシミュレーションする。
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import mesa
 from omegaconf import DictConfig
 
 from digital_twin.abm.consumer_agent import (
-    DEFAULT_CONSIDERING_FACTOR,
     DEFAULT_INFLUENCER_THRESHOLD,
     AdoptionState,
     AgentProfile,
@@ -21,6 +20,12 @@ from digital_twin.abm.consumer_agent import (
 from digital_twin.abm.network import build_consumer_network
 
 logger = logging.getLogger(__name__)
+
+# 購買以上の状態（周囲に影響を与える状態）
+_INFLUENCING_STATES = {AdoptionState.PURCHASED, AdoptionState.REPEAT}
+
+# リピーターの口コミ強化係数
+DEFAULT_REPEAT_MULTIPLIER = 1.5
 
 
 def _load_abm_config() -> DictConfig | None:
@@ -34,7 +39,7 @@ def _load_abm_config() -> DictConfig | None:
 
 
 class PrescriptionModel(mesa.Model):
-    """処方行動の社会シミュレーションモデル."""
+    """商品浸透の社会シミュレーションモデル."""
 
     def __init__(
         self,
@@ -42,6 +47,7 @@ class PrescriptionModel(mesa.Model):
         seed: int = 42,
         kol_influence: float | None = None,
         peer_influence: float | None = None,
+        repeat_multiplier: float | None = None,
         config: DictConfig | None = None,
     ) -> None:
         super().__init__(seed=seed)
@@ -51,21 +57,20 @@ class PrescriptionModel(mesa.Model):
 
         self.kol_influence = kol_influence or (cfg.influence.kol_influence if cfg else 0.15)
         self.peer_influence = peer_influence or (cfg.influence.peer_influence if cfg else 0.05)
+        self.repeat_multiplier = repeat_multiplier or (
+            cfg.influence.repeat_multiplier if cfg and cfg.influence.get("repeat_multiplier") else DEFAULT_REPEAT_MULTIPLIER
+        )
         self.step_unit = cfg.step_unit if cfg else "month"
         self.step_label = cfg.step_label if cfg else "ヶ月"
         self._steps = 0
 
         # agent config
-        # 注: config キー名 kol_threshold は下位互換のため維持（#4 で configs/ 整理時に改称予定）
         influencer_threshold = cfg.agent.kol_threshold if cfg else DEFAULT_INFLUENCER_THRESHOLD
-        considering_factor = cfg.agent.considering_factor if cfg else DEFAULT_CONSIDERING_FACTOR
 
         # network config
         net_seed = cfg.network.seed if cfg else seed
         net_params = {}
         if cfg and cfg.get("network"):
-            # 注: config キー名（same_specialty_prob 等）は下位互換のため維持。
-            # configs/base.yaml 側の改称は別 Issue で対応する。
             net_params = {
                 "same_category_prob": cfg.network.same_specialty_prob,
                 "same_income_prob": cfg.network.same_bed_size_prob,
@@ -79,7 +84,6 @@ class PrescriptionModel(mesa.Model):
                 self,
                 profile=profile,
                 influencer_threshold=influencer_threshold,
-                considering_factor=considering_factor,
             )
             self._agents_list.append(agent)
 
@@ -96,14 +100,18 @@ class PrescriptionModel(mesa.Model):
         self._steps += 1
 
         for agent in self._agents_list:
-            if agent.state != AdoptionState.ADOPTED:
+            if agent.state not in _INFLUENCING_STATES:
                 continue
+
+            # リピーターは口コミ影響力が強化される
+            multiplier = self.repeat_multiplier if agent.state == AdoptionState.REPEAT else 1.0
+            base_influence = self.kol_influence if agent.is_influencer else self.peer_influence
+            influence = base_influence * multiplier
 
             neighbors = list(self.network.neighbors(agent.unique_id))
             for neighbor_id in neighbors:
                 neighbor = self._get_agent_by_id(neighbor_id)
-                if neighbor and neighbor.state != AdoptionState.ADOPTED:
-                    influence = self.kol_influence if agent.is_influencer else self.peer_influence
+                if neighbor and neighbor.state != AdoptionState.REPEAT:
                     neighbor.receive_influence(influence)
 
         for agent in self._agents_list:
@@ -117,19 +125,22 @@ class PrescriptionModel(mesa.Model):
         return None
 
     def get_adoption_count(self) -> dict[str, int]:
-        """採用状態ごとのエージェント数."""
+        """ファネル段階ごとのエージェント数."""
         counts = {s.value: 0 for s in AdoptionState}
         for agent in self._agents_list:
             counts[agent.state.value] += 1
         return counts
 
-    def get_adoption_rate(self) -> float:
-        """採用率."""
+    def get_purchase_rate(self) -> float:
+        """購買到達率（購買+リピート）."""
         total = len(self._agents_list)
         if total == 0:
             return 0.0
-        adopted = sum(1 for a in self._agents_list if a.state == AdoptionState.ADOPTED)
-        return adopted / total
+        purchased = sum(
+            1 for a in self._agents_list
+            if a.state in {AdoptionState.PURCHASED, AdoptionState.REPEAT}
+        )
+        return purchased / total
 
     def run(self, steps: int = 50) -> list[dict]:
         """複数ステップを実行し、各ステップの状態を返す."""
@@ -139,6 +150,6 @@ class PrescriptionModel(mesa.Model):
             history.append({
                 "step": self._steps,
                 **self.get_adoption_count(),
-                "adoption_rate": self.get_adoption_rate(),
+                "purchase_rate": self.get_purchase_rate(),
             })
         return history

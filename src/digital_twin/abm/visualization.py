@@ -1,7 +1,7 @@
 """ABM 可視化 — ネットワークグラフとラインチャート.
 
-設計書 W9 Day3-4 に対応。Plotly で採用状況のネットワーク可視化と
-処方シェア変動の時系列チャートを生成する。
+5段階ファネル（未認知→認知→関心→購買→リピート）の
+ネットワーク可視化と浸透推移チャートを生成する。
 """
 
 from __future__ import annotations
@@ -13,22 +13,26 @@ from digital_twin.abm.consumer_agent import AdoptionState, ConsumerAgent
 
 # 採用状態ごとの色
 _STATE_COLORS = {
-    AdoptionState.NOT_ADOPTED: "#94A3B8",  # グレー
-    AdoptionState.CONSIDERING: "#F59E0B",  # 黄色
-    AdoptionState.ADOPTED: "#10B981",  # 緑
+    AdoptionState.UNAWARE: "#94A3B8",      # グレー
+    AdoptionState.AWARE: "#60A5FA",        # 青
+    AdoptionState.INTERESTED: "#F59E0B",   # 黄
+    AdoptionState.PURCHASED: "#10B981",    # 緑
+    AdoptionState.REPEAT: "#8B5CF6",       # 紫
 }
 
 _STATE_LABELS = {
-    AdoptionState.NOT_ADOPTED: "未採用",
-    AdoptionState.CONSIDERING: "検討中",
-    AdoptionState.ADOPTED: "採用済み",
+    AdoptionState.UNAWARE: "未認知",
+    AdoptionState.AWARE: "認知",
+    AdoptionState.INTERESTED: "関心",
+    AdoptionState.PURCHASED: "購買",
+    AdoptionState.REPEAT: "リピート",
 }
 
 
 def plot_network(
     agents: list[ConsumerAgent],
     network: nx.Graph,
-    title: str = "生活者ネットワーク — 採用状況",
+    title: str = "生活者ネットワーク — 浸透状況",
 ) -> go.Figure:
     """ネットワークグラフを Plotly で生成する."""
     pos = nx.spring_layout(network, seed=42)
@@ -100,39 +104,50 @@ def plot_network(
 def plot_adoption_timeline(
     history: list[dict],
     event_steps: list[dict] | None = None,
-    title: str = "採用率の時系列推移",
+    title: str = "商品浸透ファネル推移",
 ) -> go.Figure:
-    """採用率の時系列ラインチャートを生成する."""
+    """ファネル各段階の時系列ラインチャートを生成する."""
     steps = [h["step"] for h in history]
-    rates = [h["adoption_rate"] for h in history]
 
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter(
-        x=steps, y=rates,
-        mode="lines+markers",
-        name="採用率",
-        line={"color": "#10B981", "width": 2},
-        marker={"size": 4},
-    ))
+    # 各状態の割合を計算して表示
+    state_configs = [
+        ("aware", "認知", "#60A5FA"),
+        ("interested", "関心", "#F59E0B"),
+        ("purchased", "購買", "#10B981"),
+        ("repeat", "リピート", "#8B5CF6"),
+    ]
 
-    # 状態別の積み上げエリア
-    if history and "adopted" in history[0]:
-        total = sum(history[0].get(s.value, 0) for s in AdoptionState)
-        if total > 0:
-            adopted = [h.get("adopted", 0) / total for h in history]
-            considering = [h.get("considering", 0) / total for h in history]
+    for state_key, label, color in state_configs:
+        if history and state_key in history[0]:
+            total = sum(history[0].get(s.value, 0) for s in AdoptionState)
+            if total > 0:
+                # 累積: その段階以上に到達した人の割合
+                if state_key == "aware":
+                    values = [
+                        (h.get("aware", 0) + h.get("interested", 0) + h.get("purchased", 0) + h.get("repeat", 0)) / total
+                        for h in history
+                    ]
+                elif state_key == "interested":
+                    values = [
+                        (h.get("interested", 0) + h.get("purchased", 0) + h.get("repeat", 0)) / total
+                        for h in history
+                    ]
+                elif state_key == "purchased":
+                    values = [
+                        (h.get("purchased", 0) + h.get("repeat", 0)) / total
+                        for h in history
+                    ]
+                else:  # repeat
+                    values = [h.get("repeat", 0) / total for h in history]
 
-            fig.add_trace(go.Scatter(
-                x=steps, y=adopted,
-                mode="lines", name="採用済み率",
-                line={"color": "#10B981", "width": 1, "dash": "dot"},
-            ))
-            fig.add_trace(go.Scatter(
-                x=steps, y=considering,
-                mode="lines", name="検討中率",
-                line={"color": "#F59E0B", "width": 1, "dash": "dot"},
-            ))
+                fig.add_trace(go.Scatter(
+                    x=steps, y=values,
+                    mode="lines",
+                    name=f"{label}到達率",
+                    line={"color": color, "width": 2},
+                ))
 
     # イベントマーカー
     if event_steps:
@@ -147,8 +162,8 @@ def plot_adoption_timeline(
 
     fig.update_layout(
         title=title,
-        xaxis_title="タイムステップ",
-        yaxis_title="割合",
+        xaxis_title="タイムステップ（月）",
+        yaxis_title="到達率",
         yaxis={"range": [0, 1]},
         height=400,
         margin={"l": 40, "r": 20, "t": 50, "b": 40},
