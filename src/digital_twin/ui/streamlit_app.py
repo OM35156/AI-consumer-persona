@@ -14,6 +14,11 @@ project_root = Path(__file__).resolve().parents[3]
 load_dotenv(project_root / ".env")
 sys.path.insert(0, str(project_root / "src"))
 
+from digital_twin.abm.consumer_agent import AdoptionState  # noqa: E402
+from digital_twin.abm.data_bridge import consumers_to_agent_profiles  # noqa: E402
+from digital_twin.abm.metrics import calculate_metrics  # noqa: E402
+from digital_twin.abm.model import PrescriptionModel  # noqa: E402
+from digital_twin.abm.visualization import plot_adoption_timeline, plot_network  # noqa: E402
 from digital_twin.data.schema import Consumer, SleepConcern  # noqa: E402
 from digital_twin.engine.sleep_prompt import render_sleep_interview_prompt  # noqa: E402
 from digital_twin.persona.builder import ConsumerPersonaBuilder  # noqa: E402
@@ -254,17 +259,51 @@ def tab_gallery(personas: list[ConsumerPersona], consumers: list[Consumer]):
 def tab_interview(personas: list[ConsumerPersona], consumers: list[Consumer]):
     st.subheader("🎤 睡眠インタビュー")
 
+    # フィルタ
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        iv_age_filter = st.selectbox(
+            "年代",
+            ["全て"] + [ag.value for ag in sorted(set(c.demographics.age_group for c in consumers))],
+            key="iv_age",
+        )
+    with col2:
+        iv_gender_filter = st.selectbox("性別", ["全て", "male", "female"], key="iv_gender")
+    with col3:
+        iv_concern_filter = st.selectbox(
+            "睡眠悩み",
+            ["全て"] + [v for k, v in _CONCERN_JA.items() if k != "none"],
+            key="iv_concern",
+        )
+
+    # フィルタ適用
+    pairs = [
+        (p, c, i) for i, (p, c) in enumerate(zip(personas, consumers, strict=False))
+        if c.sleep_profile and c.sleep_profile.concerns != [SleepConcern.NONE]
+    ]
+    if iv_age_filter != "全て":
+        pairs = [(p, c, i) for p, c, i in pairs if c.demographics.age_group.value == iv_age_filter]
+    if iv_gender_filter != "全て":
+        pairs = [(p, c, i) for p, c, i in pairs if c.demographics.gender.value == iv_gender_filter]
+    if iv_concern_filter != "全て":
+        target_key = next((k for k, v in _CONCERN_JA.items() if v == iv_concern_filter), None)
+        if target_key:
+            pairs = [
+                (p, c, i) for p, c, i in pairs
+                if any(cc.value == target_key for cc in c.sleep_profile.concerns)
+            ]
+
     # ペルソナ選択
     persona_options = {
         f"{p.name}（{p.age}歳・{_life_stage_ja(c.demographics.life_stage.value)}）": i
-        for i, (p, c) in enumerate(zip(personas, consumers, strict=False))
-        if c.sleep_profile and c.sleep_profile.concerns != [SleepConcern.NONE]
+        for p, c, i in pairs
     }
 
     if not persona_options:
-        st.warning("睡眠悩みのあるペルソナが見つかりません。")
+        st.warning("条件に合うペルソナが見つかりません。フィルタを変更してください。")
         return
 
+    st.caption(f"{len(persona_options)} 件該当")
     selected_label = st.selectbox("インタビュー対象のペルソナを選択", list(persona_options.keys()))
     idx = persona_options[selected_label]
     persona = personas[idx]
@@ -331,72 +370,77 @@ def tab_interview(personas: list[ConsumerPersona], consumers: list[Consumer]):
 
 
 # ══════════════════════════════════════
-# Tab 3: Sleep Distribution Analysis
+# Tab 3: Social Simulation (ABM)
 # ══════════════════════════════════════
 
+_STATE_LABELS_JA = {
+    AdoptionState.NOT_ADOPTED: "未採用",
+    AdoptionState.CONSIDERING: "検討中",
+    AdoptionState.ADOPTED: "採用済み",
+}
 
-def tab_analysis(consumers: list[Consumer]):
-    st.subheader("📊 睡眠データ分析")
 
-    consumers_with_sleep = [c for c in consumers if c.sleep_profile is not None]
-    if not consumers_with_sleep:
-        st.warning("睡眠プロファイルのある生活者がいません。")
-        return
+def tab_simulation(consumers: list[Consumer]):
+    st.subheader("🔬 社会シミュレーション（ABM）")
+    st.caption("生活者ネットワーク上での商品採用・口コミ伝播をシミュレーションします")
 
-    import plotly.graph_objects as go
-
-    col1, col2 = st.columns(2)
-
+    # パラメータ設定
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        # 睡眠悩み分布
-        concern_counts: dict[str, int] = {}
-        for c in consumers_with_sleep:
-            for cc in c.sleep_profile.concerns:
-                if cc != SleepConcern.NONE:
-                    label = _CONCERN_JA.get(cc.value, cc.value)
-                    concern_counts[label] = concern_counts.get(label, 0) + 1
-
-        if concern_counts:
-            sorted_concerns = sorted(concern_counts.items(), key=lambda x: -x[1])
-            fig = go.Figure(go.Bar(
-                x=[v for _, v in sorted_concerns],
-                y=[k for k, _ in sorted_concerns],
-                orientation="h",
-                marker_color=ACCENT,
-            ))
-            fig.update_layout(title="睡眠悩み分布", height=350, margin=dict(l=120, r=20, t=40, b=20))
-            st.plotly_chart(fig, use_container_width=True)
-
+        n_agents = st.slider("エージェント数", 30, 300, 100, step=10)
     with col2:
-        # 睡眠時間ヒストグラム
-        durations = [c.sleep_profile.avg_sleep_duration_hours for c in consumers_with_sleep]
-        fig = go.Figure(go.Histogram(x=durations, nbinsx=15, marker_color=GOLD))
-        fig.update_layout(
-            title="平均睡眠時間の分布",
-            xaxis_title="時間",
-            yaxis_title="人数",
-            height=350,
-            margin=dict(l=40, r=20, t=40, b=40),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        kol_influence = st.slider("KOL 影響力", 0.05, 0.50, 0.15, step=0.05)
+    with col3:
+        peer_influence = st.slider("ピア影響力", 0.01, 0.20, 0.05, step=0.01)
+    with col4:
+        sim_steps = st.slider("シミュレーション期間（月）", 6, 48, 24, step=6)
 
-    # 年代×悩みクロス集計
-    st.markdown("### 年代 × 睡眠悩み クロス集計")
-    cross: dict[str, dict[str, int]] = {}
-    for c in consumers_with_sleep:
-        age = c.demographics.age_group.value
-        for cc in c.sleep_profile.concerns:
-            if cc != SleepConcern.NONE:
-                label = _CONCERN_JA.get(cc.value, cc.value)
-                cross.setdefault(age, {}).setdefault(label, 0)
-                cross[age][label] += 1
+    seed = st.number_input("乱数シード", value=42, step=1, min_value=0)
 
-    if cross:
-        import pandas as pd
+    if st.button("▶ シミュレーション実行", type="primary", use_container_width=True):
+        with st.spinner("シミュレーション実行中..."):
+            # Consumer データからエージェントプロファイルを生成
+            profiles = consumers_to_agent_profiles(consumers[:n_agents])
 
-        df = pd.DataFrame(cross).T.fillna(0).astype(int)
-        df.index.name = "年代"
-        st.dataframe(df, use_container_width=True)
+            model = PrescriptionModel(
+                agent_profiles=profiles,
+                seed=int(seed),
+                kol_influence=kol_influence,
+                peer_influence=peer_influence,
+            )
+
+            history = model.run(steps=sim_steps)
+            metrics = calculate_metrics(model.consumer_agents, history)
+
+        # メトリクス表示
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("最終採用率", f"{metrics.final_adoption_rate:.1%}")
+        m2.metric("平均採用期間", f"{metrics.mean_time_to_adoption:.1f} ヶ月")
+        m3.metric("KOL 採用率", f"{metrics.influencer_adoption_rate:.1%}")
+        m4.metric("一般 採用率", f"{metrics.non_influencer_adoption_rate:.1%}")
+
+        # チャート
+        col_left, col_right = st.columns(2)
+        with col_left:
+            st.plotly_chart(
+                plot_adoption_timeline(history, title="採用率の時系列推移"),
+                use_container_width=True,
+            )
+        with col_right:
+            st.plotly_chart(
+                plot_network(model.consumer_agents, model.network),
+                use_container_width=True,
+            )
+
+        # カテゴリ別採用率
+        if metrics.adoption_by_category:
+            st.markdown("### カテゴリ別採用率")
+            import pandas as pd
+
+            cat_df = pd.DataFrame(
+                [{"カテゴリ": k, "採用率": f"{v:.1%}"} for k, v in metrics.adoption_by_category.items()]
+            )
+            st.dataframe(cat_df, use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════
@@ -412,7 +456,7 @@ def main():
 
     header()
 
-    tabs = st.tabs(["🧑‍🤝‍🧑 ペルソナギャラリー", "🎤 睡眠インタビュー", "📊 データ分析"])
+    tabs = st.tabs(["🧑‍🤝‍🧑 ペルソナギャラリー", "🎤 睡眠インタビュー", "🔬 社会シミュレーション"])
 
     with tabs[0]:
         tab_gallery(personas, consumers)
@@ -421,7 +465,7 @@ def main():
         tab_interview(personas, consumers)
 
     with tabs[2]:
-        tab_analysis(consumers)
+        tab_simulation(consumers)
 
 
 if __name__ == "__main__":
