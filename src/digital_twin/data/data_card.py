@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
@@ -297,3 +298,87 @@ def generate_cross_card(
     }
 
     return DataCard(text=text, metadata=metadata)
+
+
+# --- toitta インタビューデータカード ---
+
+
+def generate_toitta_card(
+    topic: str,
+    slices: list[str],
+    n_interviewees: int,
+    domain: str = "sleep",
+) -> DataCard:
+    """toitta インタビュー切片からトピック単位のデータカードを生成する."""
+    text = f"【睡眠インタビュー】トピック: {topic}\n"
+    text += f"対象者数: {n_interviewees}名 / 発言数: {len(slices)}件\n\n"
+    text += "■ 生活者の声\n"
+    for s in slices:
+        text += f"  - {s}\n"
+
+    metadata = {
+        "source": "toitta",
+        "topic": topic,
+        "domain": domain,
+        "n_interviewees": n_interviewees,
+        "sample_n": len(slices),
+    }
+
+    return DataCard(text=text, metadata=metadata)
+
+
+def process_toitta_interviews(
+    input_dir: str | Path,
+    output_path: str | Path,
+    glob_pattern: str = "*睡眠対策インタビュー*.csv",
+) -> list[DataCard]:
+    """toitta エクスポート CSV 群からデータカード JSONL を生成する."""
+    input_dir = Path(input_dir)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    csv_files = sorted(input_dir.glob(glob_pattern))
+    if not csv_files:
+        logger.warning(f"CSV が見つかりません: {input_dir / glob_pattern}")
+        return []
+
+    # トピック別に集約: {topic: {interviewee_id: [slice_text, ...]}}
+    topic_map: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+
+    for csv_path in csv_files:
+        df = pd.read_csv(csv_path, encoding="utf-8-sig")
+        for _, row in df.iterrows():
+            slice_text = str(row["切片"]).strip()
+            if not slice_text:
+                continue
+
+            interviewee_id = str(row.get("インタビュータイトル", csv_path.stem))
+
+            raw_groups = str(row.get("グループ名(JSON)", "[]"))
+            try:
+                groups = json.loads(raw_groups)
+            except (json.JSONDecodeError, TypeError):
+                groups = []
+
+            if not groups:
+                topic_map["未分類"][interviewee_id].append(slice_text)
+            else:
+                for group_name in groups:
+                    topic_map[group_name][interviewee_id].append(slice_text)
+
+    cards: list[DataCard] = []
+    for topic, interviewees in sorted(topic_map.items()):
+        all_slices = [s for ss in interviewees.values() for s in ss]
+        card = generate_toitta_card(
+            topic=topic,
+            slices=all_slices,
+            n_interviewees=len(interviewees),
+        )
+        cards.append(card)
+
+    with output_path.open("w", encoding="utf-8") as f:
+        for card in cards:
+            f.write(json.dumps(card.model_dump(), ensure_ascii=False) + "\n")
+
+    logger.info(f"生成完了: {len(cards)} カード → {output_path}")
+    return cards
