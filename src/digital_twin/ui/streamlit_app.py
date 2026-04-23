@@ -14,12 +14,11 @@ project_root = Path(__file__).resolve().parents[3]
 load_dotenv(project_root / ".env")
 sys.path.insert(0, str(project_root / "src"))
 
-from digital_twin.abm.consumer_agent import AdoptionState  # noqa: E402
 from digital_twin.abm.data_bridge import consumers_to_agent_profiles  # noqa: E402
 from digital_twin.abm.metrics import calculate_metrics  # noqa: E402
 from digital_twin.abm.model import PrescriptionModel  # noqa: E402
 from digital_twin.abm.visualization import plot_adoption_timeline, plot_network  # noqa: E402
-from digital_twin.data.schema import Consumer, SleepConcern  # noqa: E402
+from digital_twin.data.schema import AgeGroup, Consumer, SleepConcern  # noqa: E402
 from digital_twin.engine.sleep_prompt import render_sleep_interview_prompt  # noqa: E402
 from digital_twin.persona.builder import ConsumerPersonaBuilder  # noqa: E402
 from digital_twin.persona.profile import (  # noqa: E402
@@ -373,34 +372,97 @@ def tab_interview(personas: list[ConsumerPersona], consumers: list[Consumer]):
 # Tab 3: Social Simulation (ABM)
 # ══════════════════════════════════════
 
-_STATE_LABELS_JA = {
-    AdoptionState.NOT_ADOPTED: "未採用",
-    AdoptionState.CONSIDERING: "検討中",
-    AdoptionState.ADOPTED: "採用済み",
-}
-
-
 def tab_simulation(consumers: list[Consumer]):
     st.subheader("🔬 社会シミュレーション（ABM）")
-    st.caption("生活者ネットワーク上での商品採用・口コミ伝播をシミュレーションします")
+    st.caption("生活者ネットワーク上での商品浸透（認知→関心→購買→リピート）をシミュレーションします")
+
+    # 商品特徴テキスト欄
+    st.text_area(
+        "シミュレーション対象の商品特徴",
+        value="GABA配合の睡眠改善サプリ、1日1粒、1,500円/月",
+        height=80,
+        help="将来的にLLMが商品特徴からパラメータを自動推定します（現在は手動設定）",
+        key="product_desc",
+    )
+
+    # 対象者フィルタ
+    st.markdown("#### 対象者フィルタ")
+    fc1, fc2 = st.columns(2)
+    with fc1:
+        sim_age = st.multiselect(
+            "年代",
+            [ag.value for ag in AgeGroup],
+            default=[ag.value for ag in AgeGroup],
+            key="sim_age",
+        )
+    with fc2:
+        sim_gender = st.multiselect(
+            "性別",
+            ["male", "female"],
+            default=["male", "female"],
+            key="sim_gender",
+        )
+
+    # フィルタ適用
+    filtered_consumers = [
+        c for c in consumers
+        if c.demographics.age_group.value in sim_age
+        and c.demographics.gender.value in sim_gender
+    ]
+    st.caption(f"対象者: {len(filtered_consumers)} 名（全 {len(consumers)} 名中）")
 
     # パラメータ設定
+    st.markdown("#### シミュレーションパラメータ")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        n_agents = st.slider("エージェント数", 30, 300, 100, step=10)
+        n_agents = st.slider(
+            "エージェント数", 30, 300, min(100, len(filtered_consumers)), step=10,
+            help="シミュレーションする仮想生活者の人数。多いほど精密だが遅くなります。",
+        )
     with col2:
-        kol_influence = st.slider("KOL 影響力", 0.05, 0.50, 0.15, step=0.05)
+        kol_influence = st.slider(
+            "KOL 影響力", 0.05, 0.50, 0.15, step=0.05,
+            help="インフルエンサー1人が1ヶ月で周囲に与える影響の強さ。大きいほど口コミが速く広がります。",
+        )
     with col3:
-        peer_influence = st.slider("ピア影響力", 0.01, 0.20, 0.05, step=0.01)
+        peer_influence = st.slider(
+            "ピア影響力", 0.01, 0.20, 0.05, step=0.01,
+            help="一般人同士の1ヶ月あたりの口コミ影響力。KOLより小さいが人数が多い分、全体への浸透に寄与します。",
+        )
     with col4:
-        sim_steps = st.slider("シミュレーション期間（月）", 6, 48, 24, step=6)
+        sim_steps = st.slider(
+            "期間（月）", 6, 48, 24, step=6,
+            help="何ヶ月分のシミュレーションを実行するか。",
+        )
+
+    with st.expander("パラメータの意味"):
+        st.markdown("""
+| パラメータ | 意味 | 大きくすると |
+|---|---|---|
+| **KOL 影響力** | インフルエンサーが周囲に与える影響の強さ | 口コミが速く広がる |
+| **ピア影響力** | 一般人同士の口コミの強さ | じわじわ全体に広がる |
+| **エージェント数** | シミュレーションする人数 | より精密だが遅くなる |
+| **期間** | 何ヶ月分シミュレーションするか | 長期の浸透予測ができる |
+
+#### ファネル4段階
+| 段階 | 説明 |
+|---|---|
+| **認知** | 商品の存在を知った状態 |
+| **関心** | 「買ってみたい」と思っている状態 |
+| **購買** | 初回購入した状態 |
+| **リピート** | 継続購入している状態 |
+        """)
 
     seed = st.number_input("乱数シード", value=42, step=1, min_value=0)
 
+    if not filtered_consumers:
+        st.warning("フィルタ条件に合う対象者がいません。条件を変更してください。")
+        return
+
     if st.button("▶ シミュレーション実行", type="primary", use_container_width=True):
+        target = filtered_consumers[:n_agents]
         with st.spinner("シミュレーション実行中..."):
-            # Consumer データからエージェントプロファイルを生成
-            profiles = consumers_to_agent_profiles(consumers[:n_agents])
+            profiles = consumers_to_agent_profiles(target)
 
             model = PrescriptionModel(
                 agent_profiles=profiles,
@@ -412,18 +474,25 @@ def tab_simulation(consumers: list[Consumer]):
             history = model.run(steps=sim_steps)
             metrics = calculate_metrics(model.consumer_agents, history)
 
-        # メトリクス表示
+        # ファネルメトリクス表示
+        st.markdown("### ファネル到達率")
         m1, m2, m3, m4 = st.columns(4)
-        m1.metric("最終採用率", f"{metrics.final_adoption_rate:.1%}")
-        m2.metric("平均採用期間", f"{metrics.mean_time_to_adoption:.1f} ヶ月")
-        m3.metric("KOL 採用率", f"{metrics.influencer_adoption_rate:.1%}")
-        m4.metric("一般 採用率", f"{metrics.non_influencer_adoption_rate:.1%}")
+        m1.metric("認知率", f"{metrics.funnel_rates.get('認知率', 0):.1%}")
+        m2.metric("関心率", f"{metrics.funnel_rates.get('関心率', 0):.1%}")
+        m3.metric("購買率", f"{metrics.funnel_rates.get('購買率', 0):.1%}")
+        m4.metric("リピート率", f"{metrics.funnel_rates.get('リピート率', 0):.1%}")
+
+        st.markdown("### 詳細メトリクス")
+        d1, d2, d3 = st.columns(3)
+        d1.metric("平均購買到達期間", f"{metrics.mean_time_to_purchase:.1f} ヶ月")
+        d2.metric("KOL 購買率", f"{metrics.influencer_purchase_rate:.1%}")
+        d3.metric("一般 購買率", f"{metrics.non_influencer_purchase_rate:.1%}")
 
         # チャート
         col_left, col_right = st.columns(2)
         with col_left:
             st.plotly_chart(
-                plot_adoption_timeline(history, title="採用率の時系列推移"),
+                plot_adoption_timeline(history),
                 use_container_width=True,
             )
         with col_right:
@@ -431,16 +500,6 @@ def tab_simulation(consumers: list[Consumer]):
                 plot_network(model.consumer_agents, model.network),
                 use_container_width=True,
             )
-
-        # カテゴリ別採用率
-        if metrics.adoption_by_category:
-            st.markdown("### カテゴリ別採用率")
-            import pandas as pd
-
-            cat_df = pd.DataFrame(
-                [{"カテゴリ": k, "採用率": f"{v:.1%}"} for k, v in metrics.adoption_by_category.items()]
-            )
-            st.dataframe(cat_df, use_container_width=True, hide_index=True)
 
 
 # ══════════════════════════════════════

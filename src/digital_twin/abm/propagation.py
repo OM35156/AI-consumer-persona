@@ -10,6 +10,9 @@ from abc import ABC, abstractmethod
 
 from digital_twin.abm.consumer_agent import AdoptionState, ConsumerAgent
 
+# 周囲に影響を与える状態（購買以上）
+_INFLUENCING_STATES = {AdoptionState.PURCHASED, AdoptionState.REPEAT}
+
 
 class PropagationModel(ABC):
     """情報伝播モデルの共通インターフェース."""
@@ -20,11 +23,11 @@ class PropagationModel(ABC):
         agents: list[ConsumerAgent],
         network: dict[int, list[int]],
     ) -> int:
-        """1ステップの伝播を実行し、新規採用数を返す."""
+        """1ステップの伝播を実行し、新規購買数を返す."""
 
-    def get_adoption_count(self, agents: list[ConsumerAgent]) -> int:
-        """採用済みエージェント数."""
-        return sum(1 for a in agents if a.state == AdoptionState.ADOPTED)
+    def get_purchased_count(self, agents: list[ConsumerAgent]) -> int:
+        """購買到達エージェント数."""
+        return sum(1 for a in agents if a.state in _INFLUENCING_STATES)
 
 
 class IndependentCascadeModel(PropagationModel):
@@ -50,19 +53,18 @@ class IndependentCascadeModel(PropagationModel):
     ) -> int:
         self._step_count += 1
         decay_factor = self.decay_rate ** self._step_count
-        new_adopters = 0
+        new_purchasers = 0
 
         agent_map = {a.unique_id: a for a in agents}
 
-        # 新規採用済みエージェントからのみ伝播（活性化したステップのみ）
         for agent in agents:
-            if agent.state != AdoptionState.ADOPTED:
+            if agent.state not in _INFLUENCING_STATES:
                 continue
 
             neighbors = network.get(agent.unique_id, [])
             for neighbor_id in neighbors:
                 neighbor = agent_map.get(neighbor_id)
-                if not neighbor or neighbor.state == AdoptionState.ADOPTED:
+                if not neighbor or neighbor.state == AdoptionState.REPEAT:
                     continue
 
                 prob = self.base_probability * decay_factor
@@ -74,13 +76,13 @@ class IndependentCascadeModel(PropagationModel):
 
         # 閾値判定
         for agent in agents:
-            if agent.state != AdoptionState.ADOPTED:
+            if agent.state != AdoptionState.REPEAT:
                 prev_state = agent.state
                 agent.step()
-                if agent.state == AdoptionState.ADOPTED and prev_state != AdoptionState.ADOPTED:
-                    new_adopters += 1
+                if agent.state == AdoptionState.PURCHASED and prev_state != AdoptionState.PURCHASED:
+                    new_purchasers += 1
 
-        return new_adopters
+        return new_purchasers
 
 
 class LinearThresholdModel(PropagationModel):
@@ -104,12 +106,12 @@ class LinearThresholdModel(PropagationModel):
     ) -> int:
         self._step_count += 1
         decay_factor = self.decay_rate ** self._step_count
-        new_adopters = 0
+        new_purchasers = 0
 
         agent_map = {a.unique_id: a for a in agents}
 
         for agent in agents:
-            if agent.state == AdoptionState.ADOPTED:
+            if agent.state == AdoptionState.REPEAT:
                 continue
 
             neighbors = network.get(agent.unique_id, [])
@@ -117,7 +119,7 @@ class LinearThresholdModel(PropagationModel):
 
             for neighbor_id in neighbors:
                 neighbor = agent_map.get(neighbor_id)
-                if not neighbor or neighbor.state != AdoptionState.ADOPTED:
+                if not neighbor or neighbor.state not in _INFLUENCING_STATES:
                     continue
 
                 weight = self.kol_weight if neighbor.is_influencer else self.peer_weight
@@ -128,10 +130,10 @@ class LinearThresholdModel(PropagationModel):
 
         # 閾値判定
         for agent in agents:
-            if agent.state != AdoptionState.ADOPTED:
+            if agent.state != AdoptionState.REPEAT:
                 prev_state = agent.state
                 agent.step()
-                if agent.state == AdoptionState.ADOPTED and prev_state != AdoptionState.ADOPTED:
-                    new_adopters += 1
+                if agent.state == AdoptionState.PURCHASED and prev_state != AdoptionState.PURCHASED:
+                    new_purchasers += 1
 
-        return new_adopters
+        return new_purchasers

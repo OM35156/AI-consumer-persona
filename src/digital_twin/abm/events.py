@@ -73,9 +73,9 @@ def apply_guideline_revision(
     for agent in agents:
         if event.target_categories and agent.profile.category not in event.target_categories:
             continue
-        agent.profile.adoption_threshold = max(
+        agent.profile.purchase_threshold = max(
             0.05,
-            agent.profile.adoption_threshold - event.impact_magnitude * threshold_factor,
+            agent.profile.purchase_threshold - event.impact_magnitude * threshold_factor,
         )
         affected += 1
     return affected

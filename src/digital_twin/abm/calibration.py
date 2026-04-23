@@ -96,7 +96,7 @@ def sensitivity_analysis(
         curve = _run_simulation(agent_profiles, n_initial_adopters, steps, seed=seed, **kwargs)
         results.append({
             "param_value": value,
-            "final_adoption_rate": curve[-1] if curve else 0.0,
+            "final_purchase_rate": curve[-1] if curve else 0.0,
             "curve": curve,
         })
     return results
@@ -158,8 +158,8 @@ def _run_simulation(
         kol_influence=kol_influence, peer_influence=peer_influence,
     )
     for i in range(min(n_initial_adopters, len(model.consumer_agents))):
-        model.consumer_agents[i].state = AdoptionState.ADOPTED
+        model.consumer_agents[i].state = AdoptionState.PURCHASED
         model.consumer_agents[i].adoption_step = 0
 
     history = model.run(steps=steps)
-    return [h["adoption_rate"] for h in history]
+    return [h["purchase_rate"] for h in history]
