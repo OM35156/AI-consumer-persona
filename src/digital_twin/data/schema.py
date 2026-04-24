@@ -276,6 +276,74 @@ class SleepProfile(BaseModel):
 # --- Consumer (Raw Data Record) ---
 
 
+# --- External Panel Data ---
+
+
+class MonthlyPurchaseRecord(BaseModel):
+    """SCI 月次購入レコード."""
+
+    consumer_id: str
+    month: str  # "2025-01" 形式
+    category: str
+    brand: str = ""
+    is_new_purchase: bool = False
+    is_repeat_purchase: bool = False
+    quantity: int = Field(default=1, ge=0)
+    amount_yen: int = Field(default=0, ge=0)
+
+
+class StoreSalesRecord(BaseModel):
+    """SRI 店舗POS集計レコード."""
+
+    region: Region
+    channel: str  # 流通チャネル（例: "ドラッグストア", "コンビニ", "EC"）
+    category: str
+    brand: str = ""
+    month: str  # "2025-01" 形式
+    sales_volume: int = Field(default=0, ge=0)
+    sales_amount_yen: int = Field(default=0, ge=0)
+    purchase_rate: float = Field(default=0.0, ge=0.0, le=1.0)
+
+
+class WebActionType(StrEnum):
+    """i-SSP ウェブ行動の種別."""
+
+    PAGE_VIEW = "page_view"
+    SEARCH = "search"
+    AD_IMPRESSION = "ad_impression"
+    AD_CLICK = "ad_click"
+    EC_VISIT = "ec_visit"
+    REVIEW_READ = "review_read"
+    SNS_VIEW = "sns_view"
+
+
+class WebBehaviorLog(BaseModel):
+    """i-SSP ウェブ行動ログレコード."""
+
+    consumer_id: str
+    timestamp: str  # "2025-01-15T10:30:00" 形式
+    action_type: WebActionType
+    url: str = ""
+    domain: str = ""
+    page_title: str = ""
+    duration_seconds: int = Field(default=0, ge=0)
+    search_keyword: str = ""
+    ad_campaign_id: str = ""
+    related_brand: str = ""
+    related_category: str = ""
+
+
+class DigitalJourney(BaseModel):
+    """i-SSP セッション単位の行動経路."""
+
+    consumer_id: str
+    session_id: str
+    session_date: date
+    logs: list[WebBehaviorLog] = []
+    resulted_in_purchase: bool = False
+    purchased_brand: str = ""
+
+
 class Consumer(BaseModel):
     """生活者の全データ."""
     consumer_id: str

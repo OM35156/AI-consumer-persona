@@ -1,10 +1,20 @@
 """生活者データの読み込み."""
 
+from __future__ import annotations
+
+import csv
 import json
 import random
 from pathlib import Path
 
-from digital_twin.data.schema import Consumer, PromotionScenario, SurveyInstrument
+from digital_twin.data.schema import (
+    Consumer,
+    MonthlyPurchaseRecord,
+    PromotionScenario,
+    StoreSalesRecord,
+    SurveyInstrument,
+    WebBehaviorLog,
+)
 
 
 def load_consumers(path: str | Path) -> list[Consumer]:
@@ -48,6 +58,31 @@ def load_dataset(
     scenarios = load_scenarios(scenarios_path) if scenarios_path.exists() else []
 
     return consumers, surveys, scenarios
+
+
+def _read_csv(path: str | Path) -> list[dict[str, str]]:
+    """CSV ファイルを辞書リストとして読み込む."""
+    path = Path(path)
+    with path.open(encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def load_sci_panel(path: str | Path) -> list[MonthlyPurchaseRecord]:
+    """SCI パネル CSV から月次購入レコードを読み込む."""
+    rows = _read_csv(path)
+    return [MonthlyPurchaseRecord.model_validate(r) for r in rows]
+
+
+def load_sri_sales(path: str | Path) -> list[StoreSalesRecord]:
+    """SRI 店舗POS CSV から集計レコードを読み込む."""
+    rows = _read_csv(path)
+    return [StoreSalesRecord.model_validate(r) for r in rows]
+
+
+def load_issp_logs(path: str | Path) -> list[WebBehaviorLog]:
+    """i-SSP ウェブ行動ログ CSV を読み込む."""
+    rows = _read_csv(path)
+    return [WebBehaviorLog.model_validate(r) for r in rows]
 
 
 def split_holdout(
